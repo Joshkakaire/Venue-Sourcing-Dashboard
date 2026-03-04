@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Venue Mapping Dashboard</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',sans-serif;background:#f1f5f9;min-height:100vh}
@@ -69,8 +70,8 @@ button{cursor:pointer}a{text-decoration:none}
 #content{max-width:1280px;margin:0 auto;padding:20px}
 
 /* LIVE BANNER */
-.live-banner{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #86efac;border-radius:14px;padding:12px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
-.live-dot{width:8px;height:8px;border-radius:99px;background:#16a34a;animation:livepulse 1.5s infinite;display:inline-block;margin-right:8px}
+/* live banner removed */
+.live-dot{display:none}
 @keyframes livepulse{0%,100%{opacity:1}50%{opacity:.3}}
 
 /* KPIS */
@@ -110,11 +111,79 @@ button{cursor:pointer}a{text-decoration:none}
 .bar-wrap{background:#f1f5f9;border-radius:99px;overflow:hidden;flex:1}
 .bar-fill{height:100%;border-radius:99px}
 
-/* FILTERS */
-.filters{background:#fff;border-radius:14px;padding:14px 16px;margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;box-shadow:0 1px 3px rgba(0,0,0,.06)}
-.filter-input{padding:8px 12px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:13px;outline:none;background:#fff}
-.filter-input:focus{border-color:#6366f1}
-.clear-btn{padding:8px 12px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;font-size:12px;font-weight:700;color:#64748b}
+/* ═══ SIDEBAR FILTER LAYOUT ════════════════════════════════════════════════ */
+#app-shell{display:flex;min-height:calc(100vh - var(--nav-h,110px))}
+
+/* Sidebar — compact collapsible */
+#filter-sidebar{width:188px;flex-shrink:0;background:#fff;border-right:1px solid #e2e8f0;position:sticky;top:var(--nav-h,110px);height:calc(100vh - var(--nav-h,110px));overflow-y:auto;overflow-x:hidden;padding:12px 10px;display:none;flex-direction:column;gap:0;transition:width .2s ease,padding .2s ease}
+#filter-sidebar.collapsed{width:44px;padding:12px 6px}
+#filter-sidebar.collapsed .sf-body{display:none}
+#filter-sidebar.collapsed .sf-title{display:none}
+#filter-sidebar.collapsed .sf-collapse-btn{transform:rotate(180deg)}
+#filter-sidebar::-webkit-scrollbar{width:3px}
+#filter-sidebar::-webkit-scrollbar-thumb{background:#c7d2fe;border-radius:99px}
+
+/* Sidebar header */
+.sf-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #f1f5f9}
+.sf-title{font-weight:800;font-size:12px;color:#1e1b4b;white-space:nowrap;overflow:hidden}
+.sf-collapse-btn{background:none;border:1.5px solid #e2e8f0;border-radius:6px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:10px;color:#64748b;flex-shrink:0;transition:transform .2s,background .15s}
+.sf-collapse-btn:hover{background:#f1f5f9;border-color:#c7d2fe}
+.sf-clear-btn{width:100%;padding:5px 0;border-radius:7px;border:1.5px solid #e2e8f0;background:#fff;font-size:10px;font-weight:700;color:#64748b;cursor:pointer;margin-bottom:8px;transition:all .15s}
+.sf-clear-btn:hover{border-color:#dc2626;color:#dc2626;background:#fff1f2}
+.sf-clear{padding:4px 8px;border-radius:7px;border:1.5px solid #e2e8f0;background:#fff;font-size:10px;font-weight:700;color:#64748b;cursor:pointer;transition:all .15s}
+.sf-clear:hover{border-color:#dc2626;color:#dc2626;background:#fff1f2}
+
+/* Filter groups */
+.sf-group{margin-bottom:8px}
+.sf-label{font-size:9px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px}
+.sf-search-wrap{position:relative}
+.sf-search-icon{position:absolute;left:7px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:11px;pointer-events:none}
+.sf-search{width:100%;padding:6px 7px 6px 24px;border-radius:7px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#0f172a;font-size:11px;outline:none;transition:all .2s}
+.sf-search::placeholder{color:#b0bac5}
+.sf-search:focus{border-color:#6366f1;background:#fff;box-shadow:0 0 0 2px rgba(99,102,241,.1)}
+.sf-select{width:100%;padding:6px 20px 6px 8px;border-radius:7px;border:1.5px solid #e2e8f0;font-size:11px;font-weight:600;outline:none;background:#f8fafc url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4'%3E%3Cpath d='M0 0l4 4 4-4z' fill='%2394a3b8'/%3E%3C/svg%3E") no-repeat right 7px center;appearance:none;cursor:pointer;color:#334155;transition:all .2s}
+.sf-select:focus{border-color:#6366f1;background-color:#fff}
+.sf-select option{background:#fff;color:#0f172a}
+.sf-select.active{border-color:#6366f1;background-color:#eef2ff;color:#4338ca;font-weight:700}
+
+/* Result & type buttons */
+.sf-rank-btns,.sf-type-btns{display:flex;flex-direction:column;gap:3px}
+.sf-rank-btn,.sf-type-btn{width:100%;padding:5px 8px;border-radius:7px;border:1.5px solid #e2e8f0;background:#f8fafc;font-size:10px;font-weight:700;color:#64748b;cursor:pointer;text-align:left;transition:all .15s}
+.sf-rank-btn:hover,.sf-type-btn:hover{border-color:#c7d2fe;background:#f0f4ff}
+.sf-rank-btn.active-yes{border-color:#16a34a;background:#dcfce7;color:#15803d}
+.sf-rank-btn.active-maybe{border-color:#d97706;background:#fef3c7;color:#b45309}
+.sf-rank-btn.active-no{border-color:#dc2626;background:#fee2e2;color:#b91c1c}
+.sf-rank-btn.active-all,.sf-type-btn.active{border-color:#6366f1;background:#eef2ff;color:#4338ca}
+
+/* Active chips */
+.sf-chips{display:flex;flex-direction:column;gap:3px;margin-bottom:8px}
+.sf-chip{display:flex;align-items:center;justify-content:space-between;background:#eef2ff;border:1px solid #c7d2fe;border-radius:6px;padding:3px 7px;font-size:10px;font-weight:700;color:#4338ca}
+.sf-chip button{background:none;border:none;color:#94a3b8;cursor:pointer;font-size:13px;line-height:1;padding:0}
+.sf-chip button:hover{color:#dc2626}
+
+/* Count badge */
+.sf-count{margin-top:auto;padding:8px;border-radius:8px;background:linear-gradient(135deg,#eef2ff,#f0f9ff);border:1px solid #c7d2fe;text-align:center;font-size:16px;font-weight:900;color:#4338ca}
+.sf-count span{display:block;font-size:9px;font-weight:600;color:#94a3b8;margin-top:1px;text-transform:uppercase;letter-spacing:.5px}
+
+/* Divider */
+.sf-divider{height:1px;background:#f1f5f9;margin:8px 0}
+
+/* Mobile toggle */
+#sb-toggle{display:none;position:fixed;bottom:20px;right:20px;z-index:500;width:44px;height:44px;border-radius:99px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;font-size:18px;box-shadow:0 4px 16px rgba(99,102,241,.4);align-items:center;justify-content:center}
+
+/* Main content */
+#main-content{flex:1;min-width:0;padding:16px 20px}
+#content{padding:0}
+
+/* Responsive */
+@media(max-width:900px){
+  #filter-sidebar{position:fixed;top:0;left:-220px;height:100vh;z-index:400;transition:left .25s ease;box-shadow:4px 0 30px rgba(0,0,0,.15);padding-top:60px}
+  #filter-sidebar.open{left:0}
+  #filter-sidebar.collapsed{width:188px}
+  #sb-toggle{display:flex}
+  #main-content{padding:12px}
+}
+@media(max-width:600px){#main-content{padding:10px}}
 
 /* CARDS */
 .cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
@@ -168,6 +237,27 @@ tbody td{padding:10px 12px;color:#334155}
   .connect-row{grid-template-columns:1fr;grid-template-rows:auto auto auto}
   .kpis{grid-template-columns:1fr 1fr}
 }
+/* MAP TAB */
+#map-container{position:relative;height:calc(100vh - var(--nav-h,110px) - 32px);min-height:500px;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1)}
+#venue-map{width:100%;height:100%}
+.map-legend{position:absolute;bottom:24px;left:14px;z-index:500;background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 2px 16px rgba(0,0,0,.15);font-size:11px;min-width:130px}
+.map-legend-title{font-weight:800;font-size:11px;color:#1e1b4b;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px}
+.map-legend-item{display:flex;align-items:center;gap:7px;margin-bottom:5px;font-weight:600;color:#334155}
+.map-legend-dot{width:13px;height:13px;border-radius:99px;flex-shrink:0;border:2px solid rgba(0,0,0,.15)}
+.map-stats{position:absolute;top:14px;right:14px;z-index:500;display:flex;flex-direction:column;gap:6px}
+.map-stat-pill{background:#fff;border-radius:10px;padding:7px 12px;box-shadow:0 2px 10px rgba(0,0,0,.12);font-size:12px;font-weight:700;display:flex;align-items:center;gap:7px}
+/* Leaflet popup custom */
+.leaflet-popup-content-wrapper{border-radius:12px!important;box-shadow:0 4px 24px rgba(0,0,0,.18)!important;padding:0!important;overflow:hidden}
+.leaflet-popup-content{margin:0!important;width:260px!important}
+.map-popup-header{padding:12px 14px;color:#fff;font-weight:800;font-size:13px;line-height:1.3}
+.map-popup-body{padding:10px 14px;font-size:12px;line-height:1.9;color:#334155}
+.map-popup-row{display:flex;justify-content:space-between;border-bottom:1px solid #f1f5f9;padding:2px 0}
+.map-popup-row:last-child{border-bottom:none}
+.map-popup-label{color:#94a3b8;font-weight:600}
+.map-popup-val{font-weight:700;color:#0f172a;text-align:right;max-width:140px}
+.map-popup-score{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:#f8fafc;border-top:1px solid #e2e8f0;margin-top:4px}
+.map-no-gps{background:#fff;border-radius:12px;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:12px;font-size:12px;color:#64748b}
+.map-no-gps-title{font-weight:700;color:#0f172a;margin-bottom:6px;font-size:13px}
 </style>
 </head>
 <body>
@@ -225,17 +315,109 @@ tbody td{padding:10px 12px;color:#334155}
         <button class="upload-label" onclick="showPasteModal()" style="border:none">📋 Paste CSV</button>
       </div>
     </div>
-    <div class="tabs">
+
+    <div class="tabs" style="margin-top:8px">
       <button class="tab active" onclick="switchTab('overview')">📊 Overview</button>
       <button class="tab" onclick="switchTab('venues')">🏢 Venues</button>
       <button class="tab" onclick="switchTab('qualitative')">🧠 Qualitative</button>
       <button class="tab" onclick="switchTab('analysis')">📈 Analysis</button>
       <button class="tab" onclick="switchTab('contacts')">📞 Contacts</button>
+      <button class="tab" onclick="switchTab('map')">🗺 Map</button>
     </div>
   </div>
 </div>
 
-<div id="content"></div>
+<!-- APP SHELL: sidebar + main content -->
+<div id="app-shell">
+
+  <!-- LEFT FILTER SIDEBAR -->
+  <div id="filter-sidebar">
+    <div class="sf-header">
+      <div class="sf-title">🎛 Filters</div>
+      <button class="sf-collapse-btn" onclick="toggleSidebar()" title="Collapse">◀</button>
+    </div>
+
+    <div class="sf-body">
+      <div class="sf-chips" id="sf-chips"></div>
+      <button class="sf-clear-btn" onclick="gfClear()">✕ Clear all filters</button>
+
+      <div class="sf-group">
+        <div class="sf-label">Search</div>
+        <div class="sf-search-wrap">
+          <span class="sf-search-icon">🔍</span>
+          <input id="gf-search" class="sf-search" type="text" placeholder="Venue, parish…" oninput="gfUpdate('search',this.value)"/>
+        </div>
+      </div>
+
+      <div class="sf-divider"></div>
+
+      <div class="sf-group">
+        <div class="sf-label">Result</div>
+        <div class="sf-rank-btns">
+          <button class="sf-rank-btn active-all" id="rb-all"   onclick="gfUpdate('rank','All')">All</button>
+          <button class="sf-rank-btn"             id="rb-yes"   onclick="gfUpdate('rank','YES')">✅ YES ≥75</button>
+          <button class="sf-rank-btn"             id="rb-maybe" onclick="gfUpdate('rank','MAYBE')">⚠️ MAYBE 60–74</button>
+          <button class="sf-rank-btn"             id="rb-no"    onclick="gfUpdate('rank','NO')">❌ NO &lt;60</button>
+        </div>
+      </div>
+
+      <div class="sf-divider"></div>
+
+      <div class="sf-group">
+        <div class="sf-label">District</div>
+        <select id="gf-district" class="sf-select" onchange="gfUpdate('district',this.value)"><option value="All">All Districts</option></select>
+      </div>
+      <div class="sf-group">
+        <div class="sf-label">Subcounty</div>
+        <select id="gf-subcounty" class="sf-select" onchange="gfUpdate('subcounty',this.value)"><option value="All">All Subcounties</option></select>
+      </div>
+      <div class="sf-group">
+        <div class="sf-label">Parish</div>
+        <select id="gf-parish" class="sf-select" onchange="gfUpdate('parish',this.value)"><option value="All">All Parishes</option></select>
+      </div>
+
+      <div class="sf-divider"></div>
+
+      <div class="sf-group">
+        <div class="sf-label">Contractor</div>
+        <select id="gf-contractor" class="sf-select" onchange="gfUpdate('contractor',this.value)"><option value="All">All Contractors</option></select>
+      </div>
+
+      <div class="sf-divider"></div>
+
+      <div class="sf-group">
+        <div class="sf-label">Venue Type</div>
+        <div class="sf-type-btns">
+          <button class="sf-type-btn active" id="tb-all"       onclick="gfUpdate('venueType','All')">All Types</button>
+          <button class="sf-type-btn"        id="tb-school"    onclick="gfUpdate('venueType','school')">🏫 Schools</button>
+          <button class="sf-type-btn"        id="tb-nonschool" onclick="gfUpdate('venueType','nonschool')">🏛 Non-School</button>
+        </div>
+      </div>
+
+      <div class="sf-divider"></div>
+
+      <div class="sf-group">
+        <div class="sf-label">Sort By</div>
+        <select id="gf-sort" class="sf-select" onchange="globalFilter.sort=this.value;renderContent()">
+          <option value="overall_score">Score ↓</option>
+          <option value="venue_name">Name A–Z</option>
+          <option value="district">District A–Z</option>
+        </select>
+      </div>
+
+      <div style="flex:1;min-height:12px"></div>
+      <div class="sf-count" id="sf-count">—<span>venues</span></div>
+    </div>
+  </div>
+
+  <div id="main-content">
+    <div id="content"></div>
+  </div>
+
+</div>
+
+<!-- Mobile sidebar toggle -->
+<button id="sb-toggle" onclick="document.getElementById('filter-sidebar').classList.toggle('open')">🎛</button>
 
 <!-- MODAL -->
 <div id="modal-overlay" onclick="closeModal(event)">
@@ -264,6 +446,119 @@ const MOB_COLORS=['#6366f1','#0ea5e9','#10b981','#f59e0b','#ec4899','#8b5cf6','#
 let appData=[],currentTab='overview',autoRefreshTimer=null,aiCache={},lastSyncTime=null,dataSource='live';
 let modalInnerTab='ai';
 let venueFilter={search:'',district:'All',subcounty:'All',parish:'All',contractor:'All',rank:'All',sort:'overall_score'};
+
+// ─── GLOBAL FILTER STATE ───────────────────────────────────────────────────
+const GF_DEFAULT={search:'',district:'All',subcounty:'All',parish:'All',contractor:'All',rank:'All',venueType:'All',sort:'overall_score'};
+let globalFilter=Object.assign({},GF_DEFAULT);
+
+function gfUpdate(key,val){
+  globalFilter[key]=val;
+  // cascade: reset downstream when district/subcounty changes
+  if(key==='district'){globalFilter.subcounty='All';globalFilter.parish='All';}
+  if(key==='subcounty'){globalFilter.parish='All';}
+  venueFilter=Object.assign({},globalFilter); // keep legacy in sync
+  gfRebuildSelects();
+  gfRenderChips();
+  gfUpdateCount();
+  renderContent();
+}
+function gfClear(){
+  globalFilter=Object.assign({},GF_DEFAULT);
+  venueFilter=Object.assign({},GF_DEFAULT);
+  document.getElementById('gf-search').value='';
+  gfRebuildSelects();
+  gfRenderChips();
+  gfUpdateCount();
+  renderContent();
+}
+function gfApplyFilter(data){
+  const s=globalFilter.search.toLowerCase();
+  return data.filter(v=>{
+    const ms=!s||[v.venue_name,v.contractor,v.district,v.subcounty,v.parish,v.village,v.contact_name].some(f=>String(f||'').toLowerCase().includes(s));
+    const md=globalFilter.district==='All'||v.district===globalFilter.district;
+    const msc=globalFilter.subcounty==='All'||v.subcounty===globalFilter.subcounty;
+    const mp=globalFilter.parish==='All'||v.parish===globalFilter.parish;
+    const mc=globalFilter.contractor==='All'||v.contractor===globalFilter.contractor;
+    const mr=globalFilter.rank==='All'||overallRank(v)===globalFilter.rank;
+    const mt=globalFilter.venueType==='All'||(globalFilter.venueType==='school'&&isSchool(v))||(globalFilter.venueType==='nonschool'&&!isSchool(v));
+    return ms&&md&&msc&&mp&&mc&&mr&&mt;
+  });
+}
+function gfSort(data){
+  const by=globalFilter.sort||'overall_score';
+  return [...data].sort((a,b)=>by==='venue_name'?a.venue_name.localeCompare(b.venue_name):by==='district'?(a.district||'').localeCompare(b.district||''):b.overall_score-a.overall_score);
+}
+function gfRebuildSelects(){
+  const uq=(key,src)=>[...new Set(src.map(d=>d[key]).filter(Boolean))].sort();
+  const allDist=uq('district',appData);
+  const distData=globalFilter.district==='All'?appData:appData.filter(v=>v.district===globalFilter.district);
+  const allSub=uq('subcounty',distData);
+  const subData=globalFilter.subcounty==='All'?distData:distData.filter(v=>v.subcounty===globalFilter.subcounty);
+  const allPar=uq('parish',subData);
+  const allCon=uq('contractor',appData);
+
+  const setOpts=(id,vals,cur,label,cls='sf-select')=>{
+    const el=document.getElementById(id);if(!el)return;
+    el.innerHTML=`<option value="All">${label}</option>`+vals.map(v=>`<option value="${v}" ${cur===v?'selected':''}>${fmt(v)}</option>`).join('');
+    el.className=cls+(cur!=='All'?' active':'');
+  };
+  setOpts('gf-district',allDist,globalFilter.district,'All Districts');
+  setOpts('gf-subcounty',allSub,globalFilter.subcounty,'All Subcounties');
+  setOpts('gf-parish',allPar,globalFilter.parish,'All Parishes');
+  setOpts('gf-contractor',allCon,globalFilter.contractor,'All Contractors');
+
+  // Rank buttons
+  ['all','yes','maybe','no'].forEach(r=>{
+    const el=document.getElementById('rb-'+r);if(!el)return;
+    el.className='sf-rank-btn';
+    const cur=globalFilter.rank;
+    if(r==='all'&&cur==='All')el.classList.add('active-all');
+    if(r==='yes'&&cur==='YES')el.classList.add('active-yes');
+    if(r==='maybe'&&cur==='MAYBE')el.classList.add('active-maybe');
+    if(r==='no'&&cur==='NO')el.classList.add('active-no');
+  });
+
+  // Type buttons
+  ['all','school','nonschool'].forEach(t=>{
+    const el=document.getElementById('tb-'+t);if(!el)return;
+    const cur=globalFilter.venueType;
+    el.className='sf-type-btn'+(((t==='all'&&cur==='All')||(t===cur))?' active':'');
+  });
+
+  // Sort select
+  const sortEl=document.getElementById('gf-sort');
+  if(sortEl)sortEl.value=globalFilter.sort||'overall_score';
+}
+function gfRenderChips(){
+  const chips=[];
+  const labels={district:'📍 District',subcounty:'🏘 Subcounty',parish:'🏡 Parish',contractor:'👷 Contractor',rank:'📋 Result',venueType:'🏛 Type'};
+  Object.entries(globalFilter).forEach(([k,v])=>{
+    if(v==='All'||v===''||k==='search'||k==='sort')return;
+    chips.push(`<div class="sf-chip"><span>${labels[k]||k}: ${fmt(v)}</span><button onclick="gfUpdate('${k}','All')">×</button></div>`);
+  });
+  if(globalFilter.search)chips.unshift(`<div class="sf-chip"><span>🔍 "${globalFilter.search}"</span><button onclick="gfUpdate('search','');document.getElementById('gf-search').value=''">×</button></div>`);
+  const el=document.getElementById('sf-chips');if(el)el.innerHTML=chips.join('');
+}
+function gfUpdateCount(){
+  const n=gfApplyFilter(appData).length;
+  const el=document.getElementById('sf-count');
+  if(el)el.innerHTML=`${n}<span>venue${n!==1?'s':''} matching</span>`;
+}
+function gfInit(){
+  const sidebar=document.getElementById('filter-sidebar');
+  if(sidebar)sidebar.style.display='flex';
+  const nav=document.getElementById('topnav');
+  if(nav)document.documentElement.style.setProperty('--nav-h',nav.offsetHeight+'px');
+  gfRebuildSelects();
+  gfRenderChips();
+  gfUpdateCount();
+}
+function toggleSidebar(){
+  const sb=document.getElementById('filter-sidebar');
+  sb.classList.toggle('collapsed');
+  const btn=sb.querySelector('.sf-collapse-btn');
+  if(btn)btn.textContent=sb.classList.contains('collapsed')?'▶':'◀';
+}
 
 // ─── HELPERS ───────────────────────────────────────────────────────────────
 const fmt=s=>s?String(s).replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()):'';
@@ -303,12 +598,18 @@ function publicLogin(){
 function viewerLogin(){
   currentUser={email:'viewer',role:'viewer',name:'Team Viewer'};bootApp();
 }
-function doLogout(){currentUser=null;document.getElementById('login-screen').style.display='flex';document.getElementById('topnav').style.display='none';document.getElementById('content').style.display='none';}
+function doLogout(){
+  currentUser=null;
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('topnav').style.display='none';
+  document.getElementById('app-shell').style.display='none';
+  const sb=document.getElementById('filter-sidebar');if(sb)sb.style.display='none';
+}
 let currentUser=null;
 function bootApp(){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('topnav').style.display='block';
-  document.getElementById('content').style.display='block';
+  document.getElementById('app-shell').style.display='flex';
   const b=document.getElementById('role-badge');
   if(currentUser.role==='admin'){
     b.className='admin-badge';b.textContent='⚡ '+currentUser.name;
@@ -360,7 +661,6 @@ async function fetchSheet(silent=false){
       parsed=json.venues;
       parsed.forEach(v=>{
         if(!v.overall_score)v.overall_score=(v.location_total||0)+(v.facility_total||0)+(v.safety_total||0)+(v.convenience_total||0);
-        // normalise grand_rank key (Apps Script may return camelCase)
         if(v.grand_rank==null&&v.grandRank!=null)v.grand_rank=v.grandRank;
         if(v.grand_rank==null&&v['grand rank']!=null)v.grand_rank=v['grand rank'];
       });
@@ -407,18 +707,220 @@ function renderOfflineBanner(){return`<div style="max-width:460px;margin:80px au
 // ─── TABS ──────────────────────────────────────────────────────────────────
 function switchTab(t){
   currentTab=t;
-  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['overview','venues','qualitative','analysis','contacts'][i]===t));
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['overview','venues','qualitative','analysis','contacts','map'][i]===t));
   renderContent();
 }
 function renderContent(){
   if(!appData.length){document.getElementById('content').innerHTML=renderOfflineBanner();return;}
-  const banner=dataSource==='live'&&lastSyncTime?`<div class="live-banner"><div style="font-size:13px;color:#15803d;font-weight:700"><span class="live-dot"></span>Live data · Last synced ${lastSyncTime.toLocaleTimeString()}</div><div style="font-size:12px;color:#16a34a;font-weight:600">${appData.length} venues loaded</div></div>`:'';
+  gfInit();
   const el=document.getElementById('content');
-  if(currentTab==='overview')el.innerHTML=banner+renderOverview();
-  else if(currentTab==='venues')el.innerHTML=banner+renderVenues(venueFilter);
-  else if(currentTab==='qualitative')el.innerHTML=banner+renderQualitative();
-  else if(currentTab==='analysis')el.innerHTML=banner+renderAnalysis();
-  else if(currentTab==='contacts')el.innerHTML=banner+renderContacts();
+  if(currentTab==='overview')el.innerHTML=renderOverview();
+  else if(currentTab==='venues')el.innerHTML=renderVenues();
+  else if(currentTab==='qualitative')el.innerHTML=renderQualitative();
+  else if(currentTab==='analysis')el.innerHTML=renderAnalysis();
+  else if(currentTab==='contacts')el.innerHTML=renderContacts();
+  else if(currentTab==='map'){el.innerHTML=renderMapShell();initMap();}
+}
+
+// ══ MAP ══════════════════════════════════════════════════════════════════════
+let leafletMap=null,leafletLoaded=false;
+
+function renderMapShell(){
+  const data=gfApplyFilter(appData);
+  const withGPS=data.filter(v=>v._venue_gps_latitude&&v._venue_gps_longitude);
+  const noGPS=data.filter(v=>!v._venue_gps_latitude||!v._venue_gps_longitude);
+  const yes=data.filter(v=>overallRank(v)==='YES').length;
+  const maybe=data.filter(v=>overallRank(v)==='MAYBE').length;
+  const no=data.filter(v=>overallRank(v)==='NO').length;
+
+  const noGpsHtml=noGPS.length?`<div class="map-no-gps">
+    <div class="map-no-gps-title">⚠️ ${noGPS.length} venue${noGPS.length!==1?'s':''} without GPS coordinates</div>
+    <div style="display:flex;flex-wrap:wrap;gap:5px">
+      ${noGPS.map(v=>`<span style="background:#f1f5f9;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:600;color:#475569">${v.venue_name}</span>`).join('')}
+    </div>
+  </div>`:'';
+
+  return`
+  ${noGpsHtml}
+  <div id="map-container">
+    <div id="venue-map"></div>
+
+    <!-- Live stats overlay -->
+    <div class="map-stats">
+      <div class="map-stat-pill" style="border-left:3px solid #6366f1">
+        <span style="font-size:15px">📍</span>
+        <span style="color:#6366f1">${withGPS.length} mapped</span>
+        <span style="color:#94a3b8;font-weight:500">of ${data.length}</span>
+      </div>
+      <div class="map-stat-pill" style="border-left:3px solid #16a34a">
+        <span style="width:10px;height:10px;border-radius:99px;background:#16a34a;display:inline-block"></span>
+        <span style="color:#16a34a">${yes} YES</span>
+      </div>
+      <div class="map-stat-pill" style="border-left:3px solid #d97706">
+        <span style="width:10px;height:10px;border-radius:99px;background:#d97706;display:inline-block"></span>
+        <span style="color:#d97706">${maybe} MAYBE</span>
+      </div>
+      <div class="map-stat-pill" style="border-left:3px solid #dc2626">
+        <span style="width:10px;height:10px;border-radius:99px;background:#dc2626;display:inline-block"></span>
+        <span style="color:#dc2626">${no} NO</span>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="map-legend">
+      <div class="map-legend-title">Result</div>
+      <div class="map-legend-item"><div class="map-legend-dot" style="background:#16a34a"></div>YES (≥75)</div>
+      <div class="map-legend-item"><div class="map-legend-dot" style="background:#d97706"></div>MAYBE (60–74)</div>
+      <div class="map-legend-item"><div class="map-legend-dot" style="background:#dc2626"></div>NO (&lt;60)</div>
+      <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9">
+        <div class="map-legend-title">Category</div>
+        <div class="map-legend-item"><div class="map-legend-dot" style="background:#6366f1"></div>Community/Public</div>
+        <div class="map-legend-item"><div class="map-legend-dot" style="background:#8b5cf6"></div>Faith-Based</div>
+        <div class="map-legend-item"><div class="map-legend-dot" style="background:#0ea5e9"></div>School</div>
+        <div class="map-legend-item"><div class="map-legend-dot" style="background:#ec4899"></div>Private</div>
+        <div class="map-legend-item"><div class="map-legend-dot" style="background:#14b8a6"></div>Education Adj.</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function initMap(){
+  // Destroy existing map instance if present
+  if(leafletMap){leafletMap.remove();leafletMap=null;}
+
+  function buildMap(){
+    const data=gfApplyFilter(appData);
+    const withGPS=data.filter(v=>v._venue_gps_latitude&&v._venue_gps_longitude);
+
+    // Centre on Bugiri/Bugweri region
+    const defaultCenter=[0.5715,33.7452];
+    leafletMap=L.map('venue-map',{zoomControl:true,scrollWheelZoom:true}).setView(defaultCenter,11);
+
+    // Clean tile layer — OpenStreetMap
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom:19
+    }).addTo(leafletMap);
+
+    if(!withGPS.length){
+      leafletMap.setView(defaultCenter,11);
+      return;
+    }
+
+    // Helper: rank colour
+    const rankColor=r=>r==='YES'?'#16a34a':r==='MAYBE'?'#d97706':'#dc2626';
+    const rankBg=r=>r==='YES'?'#dcfce7':r==='MAYBE'?'#fef3c7':'#fee2e2';
+    const rankBorder=r=>r==='YES'?'#16a34a':r==='MAYBE'?'#d97706':'#dc2626';
+    const catColor=cat=>{const m={community_public:'#6366f1',faith_based:'#8b5cf6',private_enterprise:'#ec4899',schools:'#0ea5e9',education_adjacent:'#14b8a6'};return m[cat]||'#6366f1';};
+
+    const markers=[];
+    withGPS.forEach(v=>{
+      const rank=overallRank(v);
+      const p=pct(v.overall_score,85);
+      const rc=rankColor(rank);
+      const cat=catColor(v.venue_category);
+
+      // Custom circular marker: outer ring = rank colour, inner dot = category colour
+      const icon=L.divIcon({
+        className:'',
+        html:`<div style="
+          width:22px;height:22px;border-radius:99px;
+          background:${cat};
+          border:3px solid ${rc};
+          box-shadow:0 2px 8px rgba(0,0,0,.25);
+          cursor:pointer;
+          transition:transform .15s;
+          " onmouseover="this.style.transform='scale(1.3)'" onmouseout="this.style.transform='scale(1)'"></div>`,
+        iconSize:[22,22],
+        iconAnchor:[11,11],
+        popupAnchor:[0,-14]
+      });
+
+      const popup=`
+        <div class="map-popup-header" style="background:linear-gradient(135deg,#1e1b4b,#3730a3)">
+          <div style="font-size:13px;font-weight:900;margin-bottom:2px">${v.venue_name}</div>
+          <div style="font-size:11px;font-weight:500;opacity:.8">${fmt(v.district)} · ${fmt(v.subcounty)} · ${fmt(v.parish)}</div>
+        </div>
+        <div class="map-popup-body">
+          <div class="map-popup-row">
+            <span class="map-popup-label">Result</span>
+            <span style="background:${rankBg(rank)};color:${rankBorder(rank)};border-radius:6px;padding:1px 8px;font-size:11px;font-weight:800">${rank}</span>
+          </div>
+          <div class="map-popup-row">
+            <span class="map-popup-label">Grand Rank</span>
+            <span class="map-popup-val" style="color:${scoreColor(p)}">${p}% (${v.overall_score}/85)</span>
+          </div>
+          <div class="map-popup-row">
+            <span class="map-popup-label">Category</span>
+            <span class="map-popup-val">${fmt(v.venue_category)||'—'}</span>
+          </div>
+          <div class="map-popup-row">
+            <span class="map-popup-label">Contractor</span>
+            <span class="map-popup-val" style="color:#14b8a6">${v.contractor||'—'}</span>
+          </div>
+          <div class="map-popup-row">
+            <span class="map-popup-label">Location /10</span>
+            <span class="map-popup-val">${v.location_total||'—'} <span style="color:#94a3b8;font-weight:400">(${v.location_rank||'—'})</span></span>
+          </div>
+          <div class="map-popup-row">
+            <span class="map-popup-label">Facility /25</span>
+            <span class="map-popup-val">${v.facility_total||'—'} <span style="color:#94a3b8;font-weight:400">(${v.facility_rank||'—'})</span></span>
+          </div>
+          <div class="map-popup-row">
+            <span class="map-popup-label">Safety /20</span>
+            <span class="map-popup-val">${v.safety_total||'—'} <span style="color:#94a3b8;font-weight:400">(${v.safety_rank||'—'})</span></span>
+          </div>
+          <div class="map-popup-row">
+            <span class="map-popup-label">Convenience /30</span>
+            <span class="map-popup-val">${v.convenience_total||'—'} <span style="color:#94a3b8;font-weight:400">(${v.convenience_rank||'—'})</span></span>
+          </div>
+          ${v.contact_phone1?`<div class="map-popup-row"><span class="map-popup-label">Phone</span><span class="map-popup-val"><a href="tel:${v.contact_phone1}" style="color:#6366f1">${v.contact_phone1}</a></span></div>`:''}
+          ${v.assessor_notes?`<div style="margin-top:8px;padding:7px 10px;background:#f8fafc;border-radius:8px;font-size:11px;color:#475569;line-height:1.5;border-left:3px solid #c7d2fe"><b>Notes:</b> ${v.assessor_notes}</div>`:''}
+        </div>
+        <div class="map-popup-score">
+          <div style="font-size:10px;color:#94a3b8;font-weight:600">OVERALL SCORE</div>
+          <div style="font-size:22px;font-weight:900;color:${scoreColor(p)}">${p}%</div>
+          <a href="https://www.google.com/maps?q=${v._venue_gps_latitude},${v._venue_gps_longitude}" target="_blank" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:#15803d;text-decoration:none">🗺 Maps</a>
+        </div>`;
+
+      const marker=L.marker([v._venue_gps_latitude,v._venue_gps_longitude],{icon})
+        .bindPopup(popup,{maxWidth:270,minWidth:260})
+        .addTo(leafletMap);
+      markers.push(marker);
+    });
+
+    // Fit map to all markers with padding
+    if(markers.length>0){
+      const group=L.featureGroup(markers);
+      leafletMap.fitBounds(group.getBounds().pad(0.12));
+    }
+
+    // District label overlays using approximate centres
+    const districtCentres={
+      bugiri:[0.571,33.748],
+      bugweri:[0.520,33.680]
+    };
+    Object.entries(districtCentres).forEach(([name,coords])=>{
+      L.marker(coords,{
+        icon:L.divIcon({
+          className:'',
+          html:`<div style="background:rgba(30,27,75,.75);color:#fff;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:800;letter-spacing:.5px;white-space:nowrap;backdrop-filter:blur(4px)">${name.toUpperCase()}</div>`,
+          iconAnchor:[40,12]
+        }),
+        interactive:false
+      }).addTo(leafletMap);
+    });
+  }
+
+  // Load Leaflet JS if not already loaded
+  if(window.L){
+    buildMap();
+  } else {
+    const script=document.createElement('script');
+    script.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.onload=buildMap;
+    document.head.appendChild(script);
+  }
 }
 
 // ─── AI ────────────────────────────────────────────────────────────────────
@@ -470,34 +972,34 @@ function formatAIResponse(text){
 // ── School classification ──────────────────────────────────────────────────
 function isSchool(v){return /school/i.test(v.venue_name||'');}
 
-// ── Grand Rank from data (grand_rank column) ───────────────────────────────
-// grand_rank column: >=75 → YES, 60-74 → MAYBE, <60 → NO
-
 // ══ OVERVIEW ════════════════════════════════════════════════════════════════
 function renderOverview(){
-  const yes=appData.filter(v=>overallRank(v)==='YES').length;
-  const maybe=appData.filter(v=>overallRank(v)==='MAYBE').length;
-  const no=appData.filter(v=>overallRank(v)==='NO').length;
-  const avg=appData.reduce((s,v)=>s+v.overall_score,0)/(appData.length||1);
+  const data=gfApplyFilter(appData);
+  const yes=data.filter(v=>overallRank(v)==='YES').length;
+  const maybe=data.filter(v=>overallRank(v)==='MAYBE').length;
+  const no=data.filter(v=>overallRank(v)==='NO').length;
+  const avg=data.reduce((s,v)=>s+v.overall_score,0)/(data.length||1);
 
-  // Group helper
-  function grp(key){const g={};appData.forEach(v=>{const k=v[key]||'Unknown';if(!g[k])g[k]=[];g[k].push(v);});return g;}
+  // Group helper uses filtered data
+  function grp(key){const g={};data.forEach(v=>{const k=v[key]||'Unknown';if(!g[k])g[k]=[];g[k].push(v);});return g;}
   const byDist=grp('district');
   const byMob=grp('contractor');
   const byParish=grp('parish');
 
-  const schools=appData.filter(v=>isSchool(v));
-  const nonSchools=appData.filter(v=>!isSchool(v));
+  const schools=data.filter(v=>isSchool(v));
+  const nonSchools=data.filter(v=>!isSchool(v));
+  const schoolYes=schools.filter(v=>overallRank(v)==='YES').length;
+  const schoolMaybe=schools.filter(v=>overallRank(v)==='MAYBE').length;
+  const schoolNo=schools.filter(v=>overallRank(v)==='NO').length;
 
-  // ── KPIs ─────────────────────────────────────────────────────────────
   const kpis=`<div class="kpis">
-    <div class="kpi" style="border-left:4px solid #6366f1"><div class="kpi-label">Total Venues</div><div class="kpi-val">${appData.length}</div><div class="kpi-sub">Assessed so far</div></div>
-    <div class="kpi" style="border-left:4px solid #16a34a"><div class="kpi-label">✅ Approved</div><div class="kpi-val">${yes}</div><div class="kpi-sub">${pct(yes,appData.length)}% pass rate</div></div>
+    <div class="kpi" style="border-left:4px solid #6366f1"><div class="kpi-label">Total Venues</div><div class="kpi-val">${data.length}</div><div class="kpi-sub">${data.length<appData.length?`Filtered from ${appData.length}`:'Assessed so far'}</div></div>
+    <div class="kpi" style="border-left:4px solid #16a34a"><div class="kpi-label">✅ Approved</div><div class="kpi-val">${yes}</div><div class="kpi-sub">${pct(yes,data.length||1)}% pass rate</div></div>
     <div class="kpi" style="border-left:4px solid #d97706"><div class="kpi-label">⚠️ Pending</div><div class="kpi-val">${maybe}</div><div class="kpi-sub">Needs review</div></div>
     <div class="kpi" style="border-left:4px solid #dc2626"><div class="kpi-label">❌ Rejected</div><div class="kpi-val">${no}</div><div class="kpi-sub">Did not qualify</div></div>
     <div class="kpi" style="border-left:4px solid #0ea5e9"><div class="kpi-label">Avg Score</div><div class="kpi-val">${Math.round(avg/85*100)}%</div><div class="kpi-sub">${avg.toFixed(1)} / 85 pts</div></div>
     <div class="kpi" style="border-left:4px solid #14b8a6"><div class="kpi-label">Mobilisers</div><div class="kpi-val">${Object.keys(byMob).length}</div><div class="kpi-sub">Active assessors</div></div>
-    <div class="kpi" style="border-left:4px solid #8b5cf6"><div class="kpi-label">🏛 Non-School</div><div class="kpi-val">${Math.round(nonSchools.length/(appData.length||1)*100)}%</div><div class="kpi-sub">${nonSchools.length} of ${appData.length} venues</div></div>
+    <div class="kpi" style="border-left:4px solid #8b5cf6"><div class="kpi-label">🏛 Non-School</div><div class="kpi-val">${Math.round(nonSchools.length/(data.length||1)*100)}%</div><div class="kpi-sub">${nonSchools.length} of ${data.length} venues</div></div>
     <div class="kpi" style="border-left:4px solid #06b6d4"><div class="kpi-label">📍 Parishes</div><div class="kpi-val">${Object.keys(byParish).length}</div><div class="kpi-sub">With assessed venues</div></div>
   </div>`;
 
@@ -545,7 +1047,7 @@ function renderOverview(){
   }).join('');
 
   // ── Top 3 ─────────────────────────────────────────────────────────────
-  const top3=[...appData].sort((a,b)=>b.overall_score-a.overall_score).slice(0,3);
+  const top3=[...data].sort((a,b)=>b.overall_score-a.overall_score).slice(0,3);
   const medals=['🥇','🥈','🥉'];
   let topCards=top3.map((v,i)=>{
     const p=pct(v.overall_score,85);
@@ -557,10 +1059,70 @@ function renderOverview(){
     </div>`;
   }).join('');
 
-  // ── Parish data now rendered inline per district ──────────────────────────
-  // (school table removed from overview per requirements)
+  // ── Parish distribution (disaggregated per district) ──────────────────
+  const parishByDistrict=Object.entries(byDist).map(([dist,distVs])=>{
+    const distParishes={};distVs.forEach(v=>{const p=v.parish||'Unknown';if(!distParishes[p])distParishes[p]=[];distParishes[p].push(v);});
+    const nsP=Math.round(distVs.filter(v=>!isSchool(v)).length/(distVs.length||1)*100);
+    return`<div style="margin-bottom:18px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding-bottom:6px;border-bottom:2px solid #e2e8f0">
+        <div style="font-weight:800;font-size:13px;color:#1e1b4b;text-transform:capitalize">${dist}</div>
+        <span style="background:#e0e7ff;color:#4338ca;border-radius:99px;padding:2px 8px;font-size:11px;font-weight:700">${distVs.length} venues</span>
+        <span style="background:#f0fdf4;color:#15803d;border-radius:99px;padding:2px 8px;font-size:11px;font-weight:700">${nsP}% non-school</span>
+        <span style="font-size:11px;color:#94a3b8">${Object.keys(distParishes).length} parishes</span>
+      </div>
+      ${Object.entries(distParishes).sort((a,b)=>b[1].length-a[1].length).map(([par,pvs])=>{
+        const y=pvs.filter(v=>overallRank(v)==='YES').length;
+        const m=pvs.filter(v=>overallRank(v)==='MAYBE').length;
+        const n=pvs.filter(v=>overallRank(v)==='NO').length;
+        const aS=pvs.reduce((s,v)=>s+v.overall_score,0)/pvs.length;
+        return`<div style="display:flex;align-items:center;gap:10px;padding:6px 0 6px 14px;border-bottom:1px solid #f8fafc">
+          <div style="width:130px;font-size:12px;color:#334155;font-weight:600;text-transform:capitalize;flex-shrink:0">${par}</div>
+          <div style="flex:1">${miniBar(aS,85,'#06b6d4',7)}</div>
+          <div style="width:32px;text-align:right;font-size:11px;font-weight:700;color:#06b6d4;flex-shrink:0">${pvs.length}</div>
+          <div style="display:flex;gap:3px;margin-left:8px;flex-shrink:0">
+            <span style="background:#dcfce7;color:#16a34a;border-radius:5px;padding:1px 6px;font-size:10px;font-weight:700">${y}</span>
+            <span style="background:#fef3c7;color:#d97706;border-radius:5px;padding:1px 6px;font-size:10px;font-weight:700">${m}</span>
+            <span style="background:#fee2e2;color:#dc2626;border-radius:5px;padding:1px 6px;font-size:10px;font-weight:700">${n}</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
 
   return`
+  <div class="section-card" style="background:linear-gradient(135deg,#f8faff,#f0f4ff);border:1px solid #c7d2fe;margin-bottom:20px">
+    <div style="font-weight:800;font-size:14px;color:#1e1b4b;margin-bottom:12px">📋 Venue Assessment Criteria</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+      <div style="background:#dcfce7;border:1.5px solid #16a34a44;border-radius:12px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start">
+        <div style="font-size:22px;flex-shrink:0">✅</div>
+        <div>
+          <div style="font-weight:800;font-size:14px;color:#15803d;margin-bottom:2px">YES — Approved</div>
+          <div style="font-size:12px;color:#166534;font-weight:600">Grand Rank Score ≥ 75</div>
+          <div style="font-size:11px;color:#15803d;margin-top:4px;line-height:1.5">Venue meets all key standards and is fully recommended for training activities.</div>
+        </div>
+      </div>
+      <div style="background:#fef3c7;border:1.5px solid #d9780644;border-radius:12px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start">
+        <div style="font-size:22px;flex-shrink:0">⚠️</div>
+        <div>
+          <div style="font-weight:800;font-size:14px;color:#b45309;margin-bottom:2px">MAYBE — Conditional</div>
+          <div style="font-size:12px;color:#92400e;font-weight:600">Grand Rank Score 60 – 74</div>
+          <div style="font-size:11px;color:#b45309;margin-top:4px;line-height:1.5">Venue is acceptable but has gaps. May require improvements before use.</div>
+        </div>
+      </div>
+      <div style="background:#fee2e2;border:1.5px solid #dc262644;border-radius:12px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start">
+        <div style="font-size:22px;flex-shrink:0">❌</div>
+        <div>
+          <div style="font-weight:800;font-size:14px;color:#b91c1c;margin-bottom:2px">NO — Rejected</div>
+          <div style="font-size:12px;color:#991b1b;font-weight:600">Grand Rank Score &lt; 60</div>
+          <div style="font-size:11px;color:#b91c1c;margin-top:4px;line-height:1.5">Venue does not meet minimum requirements and is not recommended for training.</div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:12px;padding-top:10px;border-top:1px solid #c7d2fe;font-size:11px;color:#64748b;display:flex;gap:16px;flex-wrap:wrap">
+      <span>📊 <b>Max possible score:</b> 85 pts (Location 10 + Facility 25 + Safety 20 + Convenience 30)</span>
+      <span>🔢 <b>Grand Rank</b> is the total weighted assessment score from the field data</span>
+    </div>
+  </div>
   ${kpis}
   <div class="overview-2col">
     <div class="section-card">
@@ -574,35 +1136,7 @@ function renderOverview(){
   </div>
   <div class="section-card">
     <div class="section-title">🏘️ Parishes by District <span class="section-sub">${Object.keys(byParish).length} parishes across ${Object.keys(byDist).length} districts</span></div>
-    ${Object.entries(byDist).map(([dist,distVs])=>{
-      // parishes within this district
-      const distParishes={};distVs.forEach(v=>{const p=v.parish||'Unknown';if(!distParishes[p])distParishes[p]=[];distParishes[p].push(v);});
-      const nonSchoolPct=Math.round(distVs.filter(v=>!isSchool(v)).length/(distVs.length||1)*100);
-      return`<div style="margin-bottom:18px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding-bottom:6px;border-bottom:2px solid #e2e8f0">
-          <div style="font-weight:800;font-size:13px;color:#1e1b4b;text-transform:capitalize">${dist}</div>
-          <span style="background:#e0e7ff;color:#4338ca;border-radius:99px;padding:2px 8px;font-size:11px;font-weight:700">${distVs.length} venues</span>
-          <span style="background:#f0fdf4;color:#15803d;border-radius:99px;padding:2px 8px;font-size:11px;font-weight:700">${nonSchoolPct}% non-school</span>
-          <span style="font-size:11px;color:#94a3b8">${Object.keys(distParishes).length} parishes</span>
-        </div>
-        ${Object.entries(distParishes).sort((a,b)=>b[1].length-a[1].length).map(([parish,pvs])=>{
-          const y=pvs.filter(v=>overallRank(v)==='YES').length;
-          const m=pvs.filter(v=>overallRank(v)==='MAYBE').length;
-          const n=pvs.filter(v=>overallRank(v)==='NO').length;
-          const aS=pvs.reduce((s,v)=>s+v.overall_score,0)/pvs.length;
-          return`<div style="display:flex;align-items:center;gap:10px;padding:6px 0 6px 14px;border-bottom:1px solid #f8fafc">
-            <div style="width:130px;font-size:12px;color:#334155;font-weight:600;text-transform:capitalize;flex-shrink:0">${parish}</div>
-            <div style="flex:1">${miniBar(aS,85,'#06b6d4',7)}</div>
-            <div style="width:32px;text-align:right;font-size:11px;font-weight:700;color:#06b6d4;flex-shrink:0">${pvs.length}</div>
-            <div style="display:flex;gap:3px;margin-left:8px;flex-shrink:0">
-              <span style="background:#dcfce7;color:#16a34a;border-radius:5px;padding:1px 6px;font-size:10px;font-weight:700">${y}</span>
-              <span style="background:#fef3c7;color:#d97706;border-radius:5px;padding:1px 6px;font-size:10px;font-weight:700">${m}</span>
-              <span style="background:#fee2e2;color:#dc2626;border-radius:5px;padding:1px 6px;font-size:10px;font-weight:700">${n}</span>
-            </div>
-          </div>`;
-        }).join('')}
-      </div>`;
-    }).join('')}
+    ${parishByDistrict||'<div style="color:#94a3b8;font-size:13px;padding:12px 0">No parish data available.</div>'}
   </div>
   <div class="section-card">
     <div class="section-title">🏆 Top Performing Venues</div>
@@ -611,29 +1145,8 @@ function renderOverview(){
 }
 
 // ══ VENUES ══════════════════════════════════════════════════════════════════
-function renderVenues(filter={}){
-  const search=(filter.search||'').toLowerCase();
-  const fDist=filter.district||'All';
-  const fSub=filter.subcounty||'All';
-  const fParish=filter.parish||'All';
-  const fCont=filter.contractor||'All';
-  const fRank=filter.rank||'All';
-  const sortBy=filter.sort||'overall_score';
-
-  const uq=(key)=>['All',...new Set(appData.map(d=>d[key]).filter(Boolean)).values()];
-  const districts=uq('district'),subcounties=uq('subcounty'),parishes=uq('parish'),contractors=uq('contractor');
-
-  let filtered=appData.filter(v=>{
-    const ms=!search||[v.venue_name,v.contractor,v.district,v.subcounty,v.parish,v.contact_name].some(f=>String(f||'').toLowerCase().includes(search));
-    return ms
-      &&(fDist==='All'||v.district===fDist)
-      &&(fSub==='All'||v.subcounty===fSub)
-      &&(fParish==='All'||v.parish===fParish)
-      &&(fCont==='All'||v.contractor===fCont)
-      &&(fRank==='All'||overallRank(v)===fRank);
-  }).sort((a,b)=>sortBy==='overall_score'?b.overall_score-a.overall_score:sortBy==='venue_name'?a.venue_name.localeCompare(b.venue_name):a.district.localeCompare(b.district));
-
-  const sel=(arr,label,cur,key)=>arr.map(v=>`<option value="${v}" ${cur===v?'selected':''}>${v==='All'?label:fmt(v)}</option>`).join('');
+function renderVenues(){
+  const filtered=gfSort(gfApplyFilter(appData));
 
   const cards=filtered.map(v=>{
     const rank=overallRank(v);const p=pct(v.overall_score,85);const col=CAT_COL[v.venue_category]||'#6366f1';
@@ -660,34 +1173,13 @@ function renderVenues(filter={}){
     </div>`;
   }).join('');
 
-  return`
-  <div class="filters">
-    <input class="filter-input" style="flex:1;min-width:200px" placeholder="🔍 Search by venue name or contractor…" value="${filter.search||''}" oninput="venueFilter.search=this.value;renderContent()"/>
-    <select class="filter-input" onchange="venueFilter.district=this.value;renderContent()">${sel(districts,'All Districts',fDist)}</select>
-    <select class="filter-input" onchange="venueFilter.subcounty=this.value;renderContent()">${sel(subcounties,'All Subcounties',fSub)}</select>
-    <select class="filter-input" onchange="venueFilter.parish=this.value;renderContent()">${sel(parishes,'All Parishes',fParish)}</select>
-    <select class="filter-input" onchange="venueFilter.contractor=this.value;renderContent()">${sel(contractors,'All Contractors',fCont)}</select>
-    <select class="filter-input" onchange="venueFilter.rank=this.value;renderContent()">
-      <option value="All">All Results</option>
-      <option value="YES" ${fRank==='YES'?'selected':''}>✅ YES</option>
-      <option value="MAYBE" ${fRank==='MAYBE'?'selected':''}>⚠️ MAYBE</option>
-      <option value="NO" ${fRank==='NO'?'selected':''}>❌ NO</option>
-    </select>
-    <select class="filter-input" onchange="venueFilter.sort=this.value;renderContent()">
-      <option value="overall_score">Score ↓</option>
-      <option value="venue_name">Name A–Z</option>
-      <option value="district">District</option>
-    </select>
-    <button class="clear-btn" onclick="venueFilter={search:'',district:'All',subcounty:'All',parish:'All',contractor:'All',rank:'All',sort:'overall_score'};renderContent()">✕ Clear</button>
-    <span style="font-size:12px;color:#94a3b8;font-weight:600;align-self:center">${filtered.length} result${filtered.length!==1?'s':''}</span>
-  </div>
-  <div class="cards-grid">${filtered.length?cards:`<div style="grid-column:1/-1;text-align:center;padding:60px;color:#94a3b8"><div style="font-size:40px">🔍</div><div style="font-weight:700;margin-top:8px">No venues match</div></div>`}</div>`;
+  return `<div class="cards-grid">${filtered.length?cards:`<div style="grid-column:1/-1;text-align:center;padding:60px;color:#94a3b8"><div style="font-size:40px">🔍</div><div style="font-weight:700;margin-top:8px">No venues match your filters</div><div style="font-size:13px;margin-top:4px">Try clearing filters in the sidebar</div></div>`}</div>`;
 }
 
 // ══ QUALITATIVE ══════════════════════════════════════════════════════════════
 function renderQualitative(){
-  const sorted=[...appData].sort((a,b)=>b.overall_score-a.overall_score);
-  let html=`<div class="section-card" style="background:linear-gradient(135deg,#f5f3ff,#eff6ff);border:1px solid #c4b5fd;margin-bottom:18px"><div style="font-weight:800;font-size:14px;color:#6d28d9;margin-bottom:4px">🧠 AI-Powered Qualitative Analysis</div><div style="font-size:13px;color:#3730a3">Click "Generate AI Report" on any venue for a real-time Claude AI assessment.</div></div>`;
+  const sorted=gfSort(gfApplyFilter(appData));
+  let html=`<div class="section-card" style="background:linear-gradient(135deg,#f5f3ff,#eff6ff);border:1px solid #c4b5fd;margin-bottom:18px"><div style="font-weight:800;font-size:14px;color:#6d28d9;margin-bottom:4px">🧠 AI-Powered Qualitative Analysis</div><div style="font-size:13px;color:#3730a3">Showing <b>${sorted.length}</b> venue${sorted.length!==1?'s':''} · Click "Generate AI Report" on any venue for a real-time Claude AI assessment.</div></div>`;
   sorted.forEach(v=>{
     const rank=overallRank(v);const p=pct(v.overall_score,85);
     const sk=v.venue_name.replace(/'/g,"\\'");
@@ -713,15 +1205,16 @@ function renderQualitative(){
 
 // ══ ANALYSIS ═════════════════════════════════════════════════════════════════
 function renderAnalysis(){
-  const sorted=[...appData].sort((a,b)=>b.overall_score-a.overall_score);
+  const sorted=gfSort(gfApplyFilter(appData));
   const rows=sorted.map((v,i)=>{const rank=overallRank(v);const p=pct(v.overall_score,85);return`<tr onclick="openModal('${v.venue_name.replace(/'/g,"\\'")}')"><td style="font-weight:700;color:#6366f1">#${i+1}</td><td style="font-weight:700">${v.venue_name}</td><td style="text-transform:capitalize">${v.district}</td><td style="text-transform:capitalize">${v.subcounty||'—'}</td><td style="color:#14b8a6;font-weight:600">${v.contractor||'—'}</td><td><div style="display:flex;align-items:center;gap:4px"><span style="font-weight:700;color:#6366f1">${v.location_total}</span>${badge(v.location_rank)}</div></td><td><div style="display:flex;align-items:center;gap:4px"><span style="font-weight:700;color:#0ea5e9">${v.facility_total}</span>${badge(v.facility_rank)}</div></td><td><div style="display:flex;align-items:center;gap:4px"><span style="font-weight:700;color:#10b981">${v.safety_total}</span>${badge(v.safety_rank)}</div></td><td><div style="display:flex;align-items:center;gap:4px"><span style="font-weight:700;color:#f59e0b">${v.convenience_total}</span>${badge(v.convenience_rank)}</div></td><td><b>${v.overall_score}</b></td><td><span style="font-weight:900;color:${scoreColor(p)}">${p}%</span></td><td>${badge(rank)}</td></tr>`;}).join('');
-  return`<div class="section-card" style="overflow-x:auto"><div class="section-title">Full Scorecard Comparison</div><table><thead><tr><th>#</th><th>Venue</th><th>District</th><th>Subcounty</th><th>Contractor</th><th>Loc /10</th><th>Fac /25</th><th>Safe /20</th><th>Conv /30</th><th>Total</th><th>%</th><th>Result</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  return`<div class="section-card" style="overflow-x:auto"><div class="section-title">Full Scorecard Comparison <span class="section-sub">${sorted.length} venue${sorted.length!==1?'s':''}</span></div><table><thead><tr><th>#</th><th>Venue</th><th>District</th><th>Subcounty</th><th>Contractor</th><th>Loc /10</th><th>Fac /25</th><th>Safe /20</th><th>Conv /30</th><th>Total</th><th>%</th><th>Result</th></tr></thead><tbody>${rows||'<tr><td colspan="12" style="text-align:center;padding:30px;color:#94a3b8">No venues match your filters</td></tr>'}</tbody></table></div>`;
 }
 
 // ══ CONTACTS ══════════════════════════════════════════════════════════════════
 function renderContacts(){
-  const rows=appData.map((v,i)=>{const rank=overallRank(v);const schoolTag=isSchool(v)?`<span style="background:#ede9fe;color:#7c3aed;border-radius:99px;padding:2px 8px;font-size:10px;font-weight:700">🏫 School</span>`:`<span style="background:#f0f9ff;color:#0369a1;border-radius:99px;padding:2px 8px;font-size:10px">Non-School</span>`;return`<tr onclick="openModal('${v.venue_name.replace(/'/g,"\\'")}')"><td style="color:#94a3b8;font-weight:700">${i+1}</td><td style="font-weight:700;text-decoration:underline;text-decoration-color:#c7d2fe">${v.venue_name}</td><td style="text-transform:capitalize">${v.district}</td><td style="color:#14b8a6;font-weight:600">${v.contractor||'—'}</td><td><a href="tel:${v.contact_phone1}" onclick="event.stopPropagation()" style="color:#6366f1;font-weight:700">${v.contact_phone1||'—'}</a></td><td style="color:#94a3b8">${v.contact_phone2||'—'}</td><td>${v.contact_email?`<a href="mailto:${v.contact_email}" onclick="event.stopPropagation()" style="color:#0ea5e9">${v.contact_email}</a>`:'<span style="color:#cbd5e1">—</span>'}</td><td>${v.invoice_pdf_URL?`<a href="${v.invoice_pdf_URL}" target="_blank" onclick="event.stopPropagation()" style="color:#16a34a;font-weight:700">📄 View</a>`:'—'}</td><td>${v.photo_url?`<a href="${v.photo_url}" target="_blank" onclick="event.stopPropagation()" style="color:#7c3aed;font-weight:700">🖼 Photo</a>`:'—'}</td><td>${schoolTag}</td><td>${badge(rank)}</td></tr>`;}).join('');
-  return`<div class="section-card" style="overflow-x:auto"><div class="section-title">Contact Directory — ${appData.length} venues</div><table><thead><tr><th>#</th><th>Venue</th><th>District</th><th>Contractor</th><th>Phone 1</th><th>Phone 2</th><th>Email</th><th>Invoice</th><th>Photo</th><th>Type</th><th>Result</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  const filtered=gfSort(gfApplyFilter(appData));
+  const rows=filtered.map((v,i)=>{const rank=overallRank(v);const schoolTag=isSchool(v)?`<span style="background:#ede9fe;color:#7c3aed;border-radius:99px;padding:2px 8px;font-size:10px;font-weight:700">🏫 School</span>`:`<span style="background:#f0f9ff;color:#0369a1;border-radius:99px;padding:2px 8px;font-size:10px">Non-School</span>`;return`<tr onclick="openModal('${v.venue_name.replace(/'/g,"\\'")}')"><td style="color:#94a3b8;font-weight:700">${i+1}</td><td style="font-weight:700;text-decoration:underline;text-decoration-color:#c7d2fe">${v.venue_name}</td><td style="text-transform:capitalize">${v.district}</td><td style="color:#14b8a6;font-weight:600">${v.contractor||'—'}</td><td><a href="tel:${v.contact_phone1}" onclick="event.stopPropagation()" style="color:#6366f1;font-weight:700">${v.contact_phone1||'—'}</a></td><td style="color:#94a3b8">${v.contact_phone2||'—'}</td><td>${v.contact_email?`<a href="mailto:${v.contact_email}" onclick="event.stopPropagation()" style="color:#0ea5e9">${v.contact_email}</a>`:'<span style="color:#cbd5e1">—</span>'}</td><td>${v.invoice_pdf_URL?`<a href="${v.invoice_pdf_URL}" target="_blank" onclick="event.stopPropagation()" style="color:#16a34a;font-weight:700">📄 View</a>`:'—'}</td><td>${v.photo_url?`<a href="${v.photo_url}" target="_blank" onclick="event.stopPropagation()" style="color:#7c3aed;font-weight:700">🖼 Photo</a>`:'—'}</td><td>${schoolTag}</td><td>${badge(rank)}</td></tr>`;}).join('');
+  return`<div class="section-card" style="overflow-x:auto"><div class="section-title">Contact Directory <span class="section-sub">${filtered.length} venue${filtered.length!==1?'s':''}</span></div><table><thead><tr><th>#</th><th>Venue</th><th>District</th><th>Contractor</th><th>Phone 1</th><th>Phone 2</th><th>Email</th><th>Invoice</th><th>Photo</th><th>Type</th><th>Result</th></tr></thead><tbody>${rows||'<tr><td colspan="11" style="text-align:center;padding:30px;color:#94a3b8">No venues match your filters</td></tr>'}</tbody></table></div>`;
 }
 
 // ══ MODAL ════════════════════════════════════════════════════════════════════
@@ -797,7 +1290,7 @@ function switchModalTab(name,tab){modalInnerTab=tab;const v=appData.find(x=>x.ve
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 document.getElementById('topnav').style.display='none';
-document.getElementById('content').style.display='none';
+document.getElementById('app-shell').style.display='none';
 </script>
 </body>
 </html>
