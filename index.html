@@ -268,7 +268,16 @@ let venueFilter={search:'',district:'All',subcounty:'All',parish:'All',contracto
 // ─── HELPERS ───────────────────────────────────────────────────────────────
 const fmt=s=>s?String(s).replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()):'';
 const pct=(v,max)=>Math.round((v/max)*100);
-function overallRank(v){const rs=[v.location_rank,v.facility_rank,v.safety_rank,v.convenience_rank];if(rs.filter(r=>r==='NO').length>=1)return'NO';if(rs.filter(r=>r==='YES').length===4)return'YES';return'MAYBE';}
+function overallRank(v){
+  // Use grand_rank column: >=75 → YES, 60–74 → MAYBE, <60 → NO
+  const gr=v.grand_rank!=null?v.grand_rank:(v.overall_score!=null?v.overall_score:null);
+  if(gr===null||gr===undefined)return'NO';
+  const score=parseFloat(gr);
+  if(!isNaN(score)){if(score>=75)return'YES';if(score>=60)return'MAYBE';return'NO';}
+  const s=String(gr).trim().toUpperCase();
+  if(s==='YES'||s==='MAYBE'||s==='NO')return s;
+  return'NO';
+}
 function badge(rank){return`<span class="badge badge-${rank}">${rank}</span>`;}
 function miniBar(val,max,color,height=8){return`<div class="bar-wrap" style="height:${height}px"><div class="bar-fill" style="width:${Math.min((val/max)*100,100)}%;background:${color};height:${height}px"></div></div>`;}
 function scoreColor(p){return p>=75?'#16a34a':p>=60?'#d97706':'#dc2626';}
@@ -315,7 +324,7 @@ function bootApp(){
 // ─── CSV PARSER ────────────────────────────────────────────────────────────
 function parseCSVLine(line){const r=[];let cur='',inQ=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else inQ=!inQ;}else if(ch===','&&!inQ){r.push(cur.trim());cur='';}else cur+=ch;}r.push(cur.trim());return r;}
 function normH(h){return h.replace(/^\uFEFF/,'').replace(/"/g,'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');}
-const ALIASES={venue_name:['venue_name','venuename','name','venue'],district:['district'],subcounty:['subcounty','sub_county'],parish:['parish'],village:['village'],venue_category:['venue_category','category'],venue_type:['venue_type','type'],contractor:['contractor','assessor','mobiliser','mobilizer'],contact_name:['contact_name','contact'],contact_phone1:['contact_phone1','phone1','phone'],contact_phone2:['contact_phone2','phone2'],contact_email:['contact_email','email'],invoice_pdf_URL:['invoice_pdf_url','invoice_url'],transport_accessibility:['transport_accessibility','transport'],proximity_to_social_amenities:['proximity_to_social_amenities','proximity'],location_total:['location_total'],location_rank:['location_rank'],training_room_size:['training_room_size','room_size'],washrooms:['washrooms'],seating_chairs:['seating_chairs','seating','chairs'],tables:['tables'],storage_room:['storage_room','storage'],facility_total:['facility_total'],facility_rank:['facility_rank'],building_compound_security:['building_compound_security'],lockable_training_rooms:['lockable_training_rooms','lockable'],handwashing_stations:['handwashing_stations','handwashing'],security_personnel:['security_personnel','personnel'],safety_total:['safety_total'],safety_rank:['safety_rank'],cleanliness_flow_quality:['cleanliness_flow_quality','cleanliness'],washroom_cleanliness:['washroom_cleanliness'],ventilation:['ventilation'],lighting:['lighting'],roof_condition:['roof_condition','roof'],outdoor_space:['outdoor_space','outdoor'],convenience_total:['convenience_total'],convenience_rank:['convenience_rank'],assessor_notes:['assessor_notes','notes','comments'],_venue_gps_latitude:['_venue_gps_latitude','latitude','lat'],_venue_gps_longitude:['_venue_gps_longitude','longitude','lng','lon']};
+const ALIASES={venue_name:['venue_name','venuename','name','venue'],district:['district'],subcounty:['subcounty','sub_county'],parish:['parish'],village:['village'],venue_category:['venue_category','category'],venue_type:['venue_type','type'],contractor:['contractor','assessor','mobiliser','mobilizer'],contact_name:['contact_name','contact'],contact_phone1:['contact_phone1','phone1','phone'],contact_phone2:['contact_phone2','phone2'],contact_email:['contact_email','email'],invoice_pdf_URL:['invoice_pdf_url','invoice_url'],photo_url:['photo_url','photo','venue_photo','image_url','image','venue_image','photo_link'],transport_accessibility:['transport_accessibility','transport'],proximity_to_social_amenities:['proximity_to_social_amenities','proximity'],location_total:['location_total'],location_rank:['location_rank'],training_room_size:['training_room_size','room_size'],washrooms:['washrooms'],seating_chairs:['seating_chairs','seating','chairs'],tables:['tables'],storage_room:['storage_room','storage'],facility_total:['facility_total'],facility_rank:['facility_rank'],building_compound_security:['building_compound_security'],lockable_training_rooms:['lockable_training_rooms','lockable'],handwashing_stations:['handwashing_stations','handwashing'],security_personnel:['security_personnel','personnel'],safety_total:['safety_total'],safety_rank:['safety_rank'],cleanliness_flow_quality:['cleanliness_flow_quality','cleanliness'],washroom_cleanliness:['washroom_cleanliness'],ventilation:['ventilation'],lighting:['lighting'],roof_condition:['roof_condition','roof'],outdoor_space:['outdoor_space','outdoor'],convenience_total:['convenience_total'],convenience_rank:['convenience_rank'],assessor_notes:['assessor_notes','notes','comments'],grand_rank:['grand_rank','grandrank','grand rank','total_rank','totalrank'],_venue_gps_latitude:['_venue_gps_latitude','latitude','lat'],_venue_gps_longitude:['_venue_gps_longitude','longitude','lng','lon']};
 const HMAP={};Object.entries(ALIASES).forEach(([c,as])=>as.forEach(a=>{HMAP[normH(a)]=c;}));
 function parseCSV(text){
   const clean=text.replace(/^\uFEFF/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
@@ -349,7 +358,12 @@ async function fetchSheet(silent=false){
       if(!json.ok)throw new Error(json.error||'Apps Script error.');
       if(!json.venues||!json.venues.length)throw new Error('0 venue rows returned.');
       parsed=json.venues;
-      parsed.forEach(v=>{if(!v.overall_score)v.overall_score=(v.location_total||0)+(v.facility_total||0)+(v.safety_total||0)+(v.convenience_total||0);});
+      parsed.forEach(v=>{
+        if(!v.overall_score)v.overall_score=(v.location_total||0)+(v.facility_total||0)+(v.safety_total||0)+(v.convenience_total||0);
+        // normalise grand_rank key (Apps Script may return camelCase)
+        if(v.grand_rank==null&&v.grandRank!=null)v.grand_rank=v.grandRank;
+        if(v.grand_rank==null&&v['grand rank']!=null)v.grand_rank=v['grand rank'];
+      });
     }else{
       const res=await fetch(url);if(!res.ok)throw new Error(`HTTP ${res.status}`);
       const text=await res.text();if(text.startsWith('<!'))throw new Error('Got HTML — use Apps Script URL.');
@@ -453,6 +467,12 @@ function formatAIResponse(text){
   closeList();return html||`<div style="font-size:13px;color:#334155;line-height:1.7">${text}</div>`;
 }
 
+// ── School classification ──────────────────────────────────────────────────
+function isSchool(v){return /school/i.test(v.venue_name||'');}
+
+// ── Grand Rank from data (grand_rank column) ───────────────────────────────
+// grand_rank column: >=75 → YES, 60-74 → MAYBE, <60 → NO
+
 // ══ OVERVIEW ════════════════════════════════════════════════════════════════
 function renderOverview(){
   const yes=appData.filter(v=>overallRank(v)==='YES').length;
@@ -464,6 +484,10 @@ function renderOverview(){
   function grp(key){const g={};appData.forEach(v=>{const k=v[key]||'Unknown';if(!g[k])g[k]=[];g[k].push(v);});return g;}
   const byDist=grp('district');
   const byMob=grp('contractor');
+  const byParish=grp('parish');
+
+  const schools=appData.filter(v=>isSchool(v));
+  const nonSchools=appData.filter(v=>!isSchool(v));
 
   // ── KPIs ─────────────────────────────────────────────────────────────
   const kpis=`<div class="kpis">
@@ -473,6 +497,8 @@ function renderOverview(){
     <div class="kpi" style="border-left:4px solid #dc2626"><div class="kpi-label">❌ Rejected</div><div class="kpi-val">${no}</div><div class="kpi-sub">Did not qualify</div></div>
     <div class="kpi" style="border-left:4px solid #0ea5e9"><div class="kpi-label">Avg Score</div><div class="kpi-val">${Math.round(avg/85*100)}%</div><div class="kpi-sub">${avg.toFixed(1)} / 85 pts</div></div>
     <div class="kpi" style="border-left:4px solid #14b8a6"><div class="kpi-label">Mobilisers</div><div class="kpi-val">${Object.keys(byMob).length}</div><div class="kpi-sub">Active assessors</div></div>
+    <div class="kpi" style="border-left:4px solid #8b5cf6"><div class="kpi-label">🏛 Non-School</div><div class="kpi-val">${Math.round(nonSchools.length/(appData.length||1)*100)}%</div><div class="kpi-sub">${nonSchools.length} of ${appData.length} venues</div></div>
+    <div class="kpi" style="border-left:4px solid #06b6d4"><div class="kpi-label">📍 Parishes</div><div class="kpi-val">${Object.keys(byParish).length}</div><div class="kpi-sub">With assessed venues</div></div>
   </div>`;
 
   // ── District summary ─────────────────────────────────────────────────
@@ -531,6 +557,9 @@ function renderOverview(){
     </div>`;
   }).join('');
 
+  // ── Parish data now rendered inline per district ──────────────────────────
+  // (school table removed from overview per requirements)
+
   return`
   ${kpis}
   <div class="overview-2col">
@@ -542,6 +571,38 @@ function renderOverview(){
       <div class="section-title">👷 Venues per Mobiliser</div>
       ${mobRows}
     </div>
+  </div>
+  <div class="section-card">
+    <div class="section-title">🏘️ Parishes by District <span class="section-sub">${Object.keys(byParish).length} parishes across ${Object.keys(byDist).length} districts</span></div>
+    ${Object.entries(byDist).map(([dist,distVs])=>{
+      // parishes within this district
+      const distParishes={};distVs.forEach(v=>{const p=v.parish||'Unknown';if(!distParishes[p])distParishes[p]=[];distParishes[p].push(v);});
+      const nonSchoolPct=Math.round(distVs.filter(v=>!isSchool(v)).length/(distVs.length||1)*100);
+      return`<div style="margin-bottom:18px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding-bottom:6px;border-bottom:2px solid #e2e8f0">
+          <div style="font-weight:800;font-size:13px;color:#1e1b4b;text-transform:capitalize">${dist}</div>
+          <span style="background:#e0e7ff;color:#4338ca;border-radius:99px;padding:2px 8px;font-size:11px;font-weight:700">${distVs.length} venues</span>
+          <span style="background:#f0fdf4;color:#15803d;border-radius:99px;padding:2px 8px;font-size:11px;font-weight:700">${nonSchoolPct}% non-school</span>
+          <span style="font-size:11px;color:#94a3b8">${Object.keys(distParishes).length} parishes</span>
+        </div>
+        ${Object.entries(distParishes).sort((a,b)=>b[1].length-a[1].length).map(([parish,pvs])=>{
+          const y=pvs.filter(v=>overallRank(v)==='YES').length;
+          const m=pvs.filter(v=>overallRank(v)==='MAYBE').length;
+          const n=pvs.filter(v=>overallRank(v)==='NO').length;
+          const aS=pvs.reduce((s,v)=>s+v.overall_score,0)/pvs.length;
+          return`<div style="display:flex;align-items:center;gap:10px;padding:6px 0 6px 14px;border-bottom:1px solid #f8fafc">
+            <div style="width:130px;font-size:12px;color:#334155;font-weight:600;text-transform:capitalize;flex-shrink:0">${parish}</div>
+            <div style="flex:1">${miniBar(aS,85,'#06b6d4',7)}</div>
+            <div style="width:32px;text-align:right;font-size:11px;font-weight:700;color:#06b6d4;flex-shrink:0">${pvs.length}</div>
+            <div style="display:flex;gap:3px;margin-left:8px;flex-shrink:0">
+              <span style="background:#dcfce7;color:#16a34a;border-radius:5px;padding:1px 6px;font-size:10px;font-weight:700">${y}</span>
+              <span style="background:#fef3c7;color:#d97706;border-radius:5px;padding:1px 6px;font-size:10px;font-weight:700">${m}</span>
+              <span style="background:#fee2e2;color:#dc2626;border-radius:5px;padding:1px 6px;font-size:10px;font-weight:700">${n}</span>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    }).join('')}
   </div>
   <div class="section-card">
     <div class="section-title">🏆 Top Performing Venues</div>
@@ -592,6 +653,7 @@ function renderVenues(filter={}){
       </div>
       <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px">
         <span style="background:${col}18;color:${col};font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px">${fmt(v.venue_category)}</span>
+        ${isSchool(v)?`<span style="background:#ede9fe;color:#7c3aed;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px">🏫 School</span>`:''}
       </div>
       ${[['Loc',v.location_total,10,'#6366f1'],['Fac',v.facility_total,25,'#0ea5e9'],['Safe',v.safety_total,20,'#10b981'],['Conv',v.convenience_total,30,'#f59e0b']].map(([l,val,mx,c])=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:10px;color:#94a3b8;width:30px">${l}</span>${miniBar(val,mx,c)}<span style="font-size:10px;font-weight:700;color:${c};width:26px;text-align:right">${val}/${mx}</span></div>`).join('')}
       <div style="margin-top:8px;font-size:11px;color:#94a3b8;text-align:right">Click for AI analysis →</div>
@@ -658,8 +720,8 @@ function renderAnalysis(){
 
 // ══ CONTACTS ══════════════════════════════════════════════════════════════════
 function renderContacts(){
-  const rows=appData.map((v,i)=>{const rank=overallRank(v);return`<tr onclick="openModal('${v.venue_name.replace(/'/g,"\\'")}')"><td style="color:#94a3b8;font-weight:700">${i+1}</td><td style="font-weight:700;text-decoration:underline;text-decoration-color:#c7d2fe">${v.venue_name}</td><td style="text-transform:capitalize">${v.district}</td><td style="color:#14b8a6;font-weight:600">${v.contractor||'—'}</td><td><a href="tel:${v.contact_phone1}" onclick="event.stopPropagation()" style="color:#6366f1;font-weight:700">${v.contact_phone1||'—'}</a></td><td style="color:#94a3b8">${v.contact_phone2||'—'}</td><td>${v.contact_email?`<a href="mailto:${v.contact_email}" onclick="event.stopPropagation()" style="color:#0ea5e9">${v.contact_email}</a>`:'<span style="color:#cbd5e1">—</span>'}</td><td>${v.invoice_pdf_URL?`<a href="${v.invoice_pdf_URL}" target="_blank" onclick="event.stopPropagation()" style="color:#16a34a;font-weight:700">📄 View</a>`:'—'}</td><td>${badge(rank)}</td></tr>`;}).join('');
-  return`<div class="section-card" style="overflow-x:auto"><div class="section-title">Contact Directory — ${appData.length} venues</div><table><thead><tr><th>#</th><th>Venue</th><th>District</th><th>Contractor</th><th>Phone 1</th><th>Phone 2</th><th>Email</th><th>Invoice</th><th>Result</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  const rows=appData.map((v,i)=>{const rank=overallRank(v);const schoolTag=isSchool(v)?`<span style="background:#ede9fe;color:#7c3aed;border-radius:99px;padding:2px 8px;font-size:10px;font-weight:700">🏫 School</span>`:`<span style="background:#f0f9ff;color:#0369a1;border-radius:99px;padding:2px 8px;font-size:10px">Non-School</span>`;return`<tr onclick="openModal('${v.venue_name.replace(/'/g,"\\'")}')"><td style="color:#94a3b8;font-weight:700">${i+1}</td><td style="font-weight:700;text-decoration:underline;text-decoration-color:#c7d2fe">${v.venue_name}</td><td style="text-transform:capitalize">${v.district}</td><td style="color:#14b8a6;font-weight:600">${v.contractor||'—'}</td><td><a href="tel:${v.contact_phone1}" onclick="event.stopPropagation()" style="color:#6366f1;font-weight:700">${v.contact_phone1||'—'}</a></td><td style="color:#94a3b8">${v.contact_phone2||'—'}</td><td>${v.contact_email?`<a href="mailto:${v.contact_email}" onclick="event.stopPropagation()" style="color:#0ea5e9">${v.contact_email}</a>`:'<span style="color:#cbd5e1">—</span>'}</td><td>${v.invoice_pdf_URL?`<a href="${v.invoice_pdf_URL}" target="_blank" onclick="event.stopPropagation()" style="color:#16a34a;font-weight:700">📄 View</a>`:'—'}</td><td>${v.photo_url?`<a href="${v.photo_url}" target="_blank" onclick="event.stopPropagation()" style="color:#7c3aed;font-weight:700">🖼 Photo</a>`:'—'}</td><td>${schoolTag}</td><td>${badge(rank)}</td></tr>`;}).join('');
+  return`<div class="section-card" style="overflow-x:auto"><div class="section-title">Contact Directory — ${appData.length} venues</div><table><thead><tr><th>#</th><th>Venue</th><th>District</th><th>Contractor</th><th>Phone 1</th><th>Phone 2</th><th>Email</th><th>Invoice</th><th>Photo</th><th>Type</th><th>Result</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 // ══ MODAL ════════════════════════════════════════════════════════════════════
@@ -687,10 +749,15 @@ function renderModal(v){
     body=`<div class="score-grid">${secs.map(([label,total,max,rank2,col2,subs])=>`<div class="score-block"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div><div style="font-weight:800;font-size:12px;color:#0f172a">${label}</div><div style="font-size:20px;font-weight:900;color:${col2}">${total}<span style="font-size:11px;color:#94a3b8;font-weight:400">/${max}</span></div></div>${badge(rank2)}</div>${miniBar(total,max,col2,8)}<div style="margin-top:10px">${subs.map(([sl,sv,sm])=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="font-size:11px;color:#94a3b8;width:80px;flex-shrink:0">${sl}</span>${miniBar(sv,sm,col2)}<span style="font-size:11px;font-weight:700;color:${col2};width:24px;text-align:right">${sv}</span></div>`).join('')}</div></div>`).join('')}</div>`;
   }
   if(modalInnerTab==='contacts'){
-    body=`<div class="contact-grid">
+    const schoolTag=isSchool(v)?`<span style="background:#ede9fe;color:#7c3aed;border:1px solid #c4b5fd;border-radius:99px;padding:2px 10px;font-size:11px;font-weight:700">🏫 School · ${badge(overallRank(v))}</span>`:`<span style="background:#f0f9ff;color:#0369a1;border:1px solid #bae6fd;border-radius:99px;padding:2px 10px;font-size:11px;font-weight:700">🏛 Non-School</span>`;
+    body=`<div style="margin-bottom:12px">${schoolTag}</div>
+    <div class="contact-grid">
       <div class="contact-block"><div class="contact-label">Contact Person</div><div style="font-weight:800;color:#0f172a;font-size:15px;margin-bottom:4px">${v.contact_name||'—'}</div><a href="tel:${v.contact_phone1}" style="display:block;font-weight:700;font-size:13px;color:#6366f1;margin-bottom:2px">📞 ${v.contact_phone1||'—'}</a>${v.contact_phone2?`<a href="tel:${v.contact_phone2}" style="display:block;font-size:13px;color:#94a3b8">📞 ${v.contact_phone2}</a>`:''}${v.contact_email?`<a href="mailto:${v.contact_email}" style="display:block;font-size:13px;color:#0ea5e9;margin-top:4px">✉️ ${v.contact_email}</a>`:''}</div>
       <div class="contact-block"><div class="contact-label">Venue Details</div><div style="font-size:13px;color:#334155;line-height:2"><div><b>District:</b> ${fmt(v.district)}</div><div><b>Subcounty:</b> ${fmt(v.subcounty)}</div><div><b>Parish:</b> ${fmt(v.parish)}</div><div><b>Contractor:</b> <span style="color:#14b8a6;font-weight:700">${v.contractor||'—'}</span></div>${v._venue_gps_latitude?`<div><b>GPS:</b> ${Number(v._venue_gps_latitude).toFixed(5)}, ${Number(v._venue_gps_longitude).toFixed(5)}</div>`:''}</div></div>
     </div>
+    ${v.photo_url?`<div class="contact-block" style="margin-top:12px"><div class="contact-label">Venue Photo</div>
+      <div style="margin-bottom:8px"><img src="${v.photo_url}" alt="Venue photo" style="width:100%;max-height:260px;object-fit:cover;border-radius:12px;border:1px solid #e2e8f0;display:block" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"/><div style="display:none;color:#94a3b8;font-size:12px;margin-top:4px">⚠️ Photo could not be loaded.</div></div>
+      <a href="${v.photo_url}" target="_blank" style="display:inline-flex;align-items:center;gap:8px;background:#fdf4ff;border:1px solid #e9d5ff;border-radius:10px;padding:10px 16px;color:#7c3aed;font-weight:700;font-size:13px">🖼 Open Full Photo →</a></div>`:''}
     ${v.invoice_pdf_URL?`<div class="contact-block" style="margin-top:12px"><div class="contact-label">Invoice</div><a href="${v.invoice_pdf_URL}" target="_blank" style="display:inline-flex;align-items:center;gap:8px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px 16px;color:#1d4ed8;font-weight:700;font-size:13px">📄 View Invoice PDF →</a></div>`:''}
     ${v._venue_gps_latitude?`<div class="contact-block" style="margin-top:12px"><div class="contact-label">Location</div><a href="https://www.google.com/maps?q=${v._venue_gps_latitude},${v._venue_gps_longitude}" target="_blank" style="display:inline-flex;align-items:center;gap:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 16px;color:#15803d;font-weight:700;font-size:13px">🗺 Open in Google Maps →</a></div>`:''}`;
   }
@@ -705,6 +772,7 @@ function renderModal(v){
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <span class="modal-tag" style="background:${col}33;color:#c7d2fe;border:1px solid ${col}55;padding:3px 10px;border-radius:99px;font-size:11px">${fmt(v.venue_category)}</span>
             <span style="background:rgba(255,255,255,.1);color:#c7d2fe;padding:3px 10px;border-radius:99px;font-size:11px">👤 ${v.contractor||'—'}</span>
+            ${isSchool(v)?`<span style="background:rgba(139,92,246,.3);color:#e9d5ff;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700">🏫 School</span>`:`<span style="background:rgba(255,255,255,.08);color:#94a3b8;padding:3px 10px;border-radius:99px;font-size:11px">🏛 Non-School</span>`}
           </div>
         </div>
         <div style="text-align:right">
