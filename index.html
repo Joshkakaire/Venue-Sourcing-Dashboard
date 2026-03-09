@@ -442,6 +442,26 @@ const USERS={'joshua.kakaire@experienceeducate.org':{password:'EE@Admin2025!',ro
 const VIEWER_PASSWORD='EETeam2025';
 const CAT_COL={community_public:'#6366f1',faith_based:'#8b5cf6',private_enterprise:'#ec4899',schools:'#0ea5e9',education_adjacent:'#14b8a6'};
 const MOB_COLORS=['#6366f1','#0ea5e9','#10b981','#f59e0b','#ec4899','#8b5cf6','#14b8a6','#ef4444'];
+// ── VENUE TARGETS (from venue_targets.xlsx) ───────────────────────────────
+const PARISH_TARGETS={
+  'BULUNGULI':3,'BUMOOZI':4,'BUWOOYA':4,'BWIGULA':3,'KALALU':2,
+  'BUTYABULE':5,'ISEGERO':4,'LWANIKA':3,'NKAIZA':2,'WANGOBO':4,
+  'BUGIRI A':4,'BUGUBO':4,'BUGUNGA':4,'NSONO':5,
+  'IDINDA':3,'MINANI':3,'NAMALEMBA':4,'NAMUNYUMYA':3,
+  'BUBUGO':2,'BUPALA':3,'BUSOGA':2,'BUWUNGA':2,'LUWOOKO':3,'MAGOOLA':3,'NAMBALE':3,
+  'BUSEMBATIA MARKET WARD':3,'KAKOGE WARD':3,'MAJENGO WARD':3,
+  'IGOMBE':3,'KIKUNYU':2,
+  'ISEGERO_nankoma':3  // Nankoma subcounty disambiguated
+};
+const DIST_TARGETS={'bugweri':43,'bugiri':56};
+const GRAND_TARGET=99;
+function parishTarget(parish,subcounty){
+  const k=(parish||'').trim().toUpperCase();
+  // disambiguate ISEGERO: Nankoma vs Nabukalu
+  if(k==='ISEGERO' && subcounty && subcounty.toLowerCase().includes('nankoma')) return 3;
+  return PARISH_TARGETS[k]||null;
+}
+
 
 let appData=[],currentTab='overview',autoRefreshTimer=null,aiCache={},lastSyncTime=null,dataSource='live';
 let modalInnerTab='ai';
@@ -563,6 +583,19 @@ function toggleSidebar(){
 // ─── HELPERS ───────────────────────────────────────────────────────────────
 const fmt=s=>s?String(s).replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()):'';
 const pct=(v,max)=>Math.round((v/max)*100);
+// Normalise number_classes: "One"→1, "Two"→2, numeric strings, or null
+function ncVal(v){
+  const raw=v.number_classes;
+  if(raw==null||raw==='')return null;
+  const s=String(raw).trim().toLowerCase();
+  if(s==='one')return 1;
+  if(s==='two')return 2;
+  if(s==='three')return 3;
+  if(s==='four')return 4;
+  const n=parseInt(s,10);
+  return isNaN(n)?null:n;
+}
+function isDual(v){return (ncVal(v)||0)>=2;}
 function overallRank(v){
   // Use grand_rank column: >=75 → YES, 60–74 → MAYBE, <60 → NO
   const gr=v.grand_rank!=null?v.grand_rank:(v.overall_score!=null?v.overall_score:null);
@@ -625,7 +658,7 @@ function bootApp(){
 // ─── CSV PARSER ────────────────────────────────────────────────────────────
 function parseCSVLine(line){const r=[];let cur='',inQ=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else inQ=!inQ;}else if(ch===','&&!inQ){r.push(cur.trim());cur='';}else cur+=ch;}r.push(cur.trim());return r;}
 function normH(h){return h.replace(/^\uFEFF/,'').replace(/"/g,'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');}
-const ALIASES={venue_name:['venue_name','venuename','name','venue'],district:['district'],subcounty:['subcounty','sub_county'],parish:['parish'],village:['village'],venue_category:['venue_category','category'],venue_type:['venue_type','type'],contractor:['contractor','assessor','mobiliser','mobilizer'],contact_name:['contact_name','contact'],contact_phone1:['contact_phone1','phone1','phone'],contact_phone2:['contact_phone2','phone2'],contact_email:['contact_email','email'],invoice_pdf_URL:['invoice_pdf_url','invoice_url'],photo_url:['photo_url','photo','venue_photo','image_url','image','venue_image','photo_link'],transport_accessibility:['transport_accessibility','transport'],proximity_to_social_amenities:['proximity_to_social_amenities','proximity'],location_total:['location_total'],location_rank:['location_rank'],training_room_size:['training_room_size','room_size'],washrooms:['washrooms'],seating_chairs:['seating_chairs','seating','chairs'],tables:['tables'],storage_room:['storage_room','storage'],facility_total:['facility_total'],facility_rank:['facility_rank'],building_compound_security:['building_compound_security'],lockable_training_rooms:['lockable_training_rooms','lockable'],handwashing_stations:['handwashing_stations','handwashing'],security_personnel:['security_personnel','personnel'],safety_total:['safety_total'],safety_rank:['safety_rank'],cleanliness_flow_quality:['cleanliness_flow_quality','cleanliness'],washroom_cleanliness:['washroom_cleanliness'],ventilation:['ventilation'],lighting:['lighting'],roof_condition:['roof_condition','roof'],outdoor_space:['outdoor_space','outdoor'],convenience_total:['convenience_total'],convenience_rank:['convenience_rank'],assessor_notes:['assessor_notes','notes','comments'],grand_rank:['grand_rank','grandrank','grand rank','total_rank','totalrank'],_venue_gps_latitude:['_venue_gps_latitude','latitude','lat'],_venue_gps_longitude:['_venue_gps_longitude','longitude','lng','lon']};
+const ALIASES={venue_name:['venue_name','venuename','name','venue'],district:['district'],subcounty:['subcounty','sub_county'],parish:['parish'],village:['village'],venue_category:['venue_category','category'],venue_type:['venue_type','type'],contractor:['contractor','assessor','mobiliser','mobilizer'],contact_name:['contact_name','contact'],contact_phone1:['contact_phone1','phone1','phone'],contact_phone2:['contact_phone2','phone2'],contact_email:['contact_email','email'],invoice_pdf_URL:['invoice_pdf_url','invoice_url'],photo_url:['photo_url','photo','venue_photo','image_url','image','venue_image','photo_link'],transport_accessibility:['transport_accessibility','transport'],proximity_to_social_amenities:['proximity_to_social_amenities','proximity'],location_total:['location_total'],location_rank:['location_rank'],training_room_size:['training_room_size','room_size'],washrooms:['washrooms'],seating_chairs:['seating_chairs','seating','chairs'],tables:['tables'],storage_room:['storage_room','storage'],facility_total:['facility_total'],facility_rank:['facility_rank'],building_compound_security:['building_compound_security'],lockable_training_rooms:['lockable_training_rooms','lockable'],handwashing_stations:['handwashing_stations','handwashing'],security_personnel:['security_personnel','personnel'],safety_total:['safety_total'],safety_rank:['safety_rank'],cleanliness_flow_quality:['cleanliness_flow_quality','cleanliness'],washroom_cleanliness:['washroom_cleanliness'],ventilation:['ventilation'],lighting:['lighting'],roof_condition:['roof_condition','roof'],outdoor_space:['outdoor_space','outdoor'],convenience_total:['convenience_total'],convenience_rank:['convenience_rank'],assessor_notes:['assessor_notes','notes','comments'],grand_rank:['grand_rank','grandrank','grand rank','total_rank','totalrank'],number_classes:['number_classes','num_classes','classes','no_classes','number_of_classes','no_of_classes'],_venue_gps_latitude:['_venue_gps_latitude','latitude','lat'],_venue_gps_longitude:['_venue_gps_longitude','longitude','lng','lon']};
 const HMAP={};Object.entries(ALIASES).forEach(([c,as])=>as.forEach(a=>{HMAP[normH(a)]=c;}));
 function parseCSV(text){
   const clean=text.replace(/^\uFEFF/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
@@ -992,15 +1025,52 @@ function renderOverview(){
   const schoolMaybe=schools.filter(v=>overallRank(v)==='MAYBE').length;
   const schoolNo=schools.filter(v=>overallRank(v)==='NO').length;
 
+  // Venues that can host 2 simultaneous classes (number_classes = "Two" or ≥2)
+  const dual2=data.filter(v=>isDual(v));
+  const dual2Yes=dual2.filter(v=>overallRank(v)==='YES').length;
+
   const kpis=`<div class="kpis">
     <div class="kpi" style="border-left:4px solid #6366f1"><div class="kpi-label">Total Venues</div><div class="kpi-val">${data.length}</div><div class="kpi-sub">${data.length<appData.length?`Filtered from ${appData.length}`:'Assessed so far'}</div></div>
-    <div class="kpi" style="border-left:4px solid #16a34a"><div class="kpi-label">✅ Approved</div><div class="kpi-val">${yes}</div><div class="kpi-sub">${pct(yes,data.length||1)}% pass rate</div></div>
+    <div class="kpi" style="border-left:4px solid #16a34a;padding-bottom:14px">
+      <div class="kpi-label">✅ Approved</div>
+      <div style="display:flex;align-items:baseline;gap:6px">
+        <div class="kpi-val">${yes}</div>
+        <div style="font-size:13px;font-weight:700;color:#16a34a">${pct(yes,GRAND_TARGET)}%</div>
+        <div style="font-size:11px;color:#94a3b8">of target</div>
+      </div>
+      <div style="margin-top:8px">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#94a3b8;margin-bottom:3px">
+          <span>Progress to target</span><span style="font-weight:700;color:${yes>=GRAND_TARGET?'#16a34a':yes>=GRAND_TARGET*0.7?'#d97706':'#6366f1'}">${yes} / ${GRAND_TARGET}</span>
+        </div>
+        <div style="background:#e2e8f0;border-radius:99px;height:7px;overflow:hidden">
+          <div style="width:${Math.min((yes/GRAND_TARGET)*100,100)}%;height:100%;border-radius:99px;background:${yes>=GRAND_TARGET?'#16a34a':yes>=GRAND_TARGET*0.7?'#d97706':'linear-gradient(90deg,#6366f1,#818cf8)'};transition:width .4s"></div>
+        </div>
+      </div>
+      <div class="kpi-sub" style="margin-top:5px">${pct(yes,data.length||1)}% pass rate</div>
+    </div>
     <div class="kpi" style="border-left:4px solid #d97706"><div class="kpi-label">⚠️ Pending</div><div class="kpi-val">${maybe}</div><div class="kpi-sub">Needs review</div></div>
     <div class="kpi" style="border-left:4px solid #dc2626"><div class="kpi-label">❌ Rejected</div><div class="kpi-val">${no}</div><div class="kpi-sub">Did not qualify</div></div>
     <div class="kpi" style="border-left:4px solid #0ea5e9"><div class="kpi-label">Avg Score</div><div class="kpi-val">${Math.round(avg/85*100)}%</div><div class="kpi-sub">${avg.toFixed(1)} / 85 pts</div></div>
     <div class="kpi" style="border-left:4px solid #14b8a6"><div class="kpi-label">Mobilisers</div><div class="kpi-val">${Object.keys(byMob).length}</div><div class="kpi-sub">Active assessors</div></div>
     <div class="kpi" style="border-left:4px solid #8b5cf6"><div class="kpi-label">🏛 Non-School</div><div class="kpi-val">${Math.round(nonSchools.length/(data.length||1)*100)}%</div><div class="kpi-sub">${nonSchools.length} of ${data.length} venues</div></div>
     <div class="kpi" style="border-left:4px solid #06b6d4"><div class="kpi-label">📍 Parishes</div><div class="kpi-val">${Object.keys(byParish).length}</div><div class="kpi-sub">With assessed venues</div></div>
+    <div class="kpi" style="border-left:4px solid #f97316;background:linear-gradient(135deg,#fff7ed,#fff);padding-bottom:14px">
+      <div class="kpi-label">🏫 Dual-Class Venues</div>
+      <div style="display:flex;align-items:baseline;gap:6px">
+        <div class="kpi-val" style="color:#ea580c">${dual2.length}</div>
+        <div style="font-size:13px;font-weight:700;color:#ea580c">${Math.round(dual2.length/(data.length||1)*100)}%</div>
+        <div style="font-size:11px;color:#94a3b8">of venues</div>
+      </div>
+      <div style="margin-top:8px">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#94a3b8;margin-bottom:3px">
+          <span>Approved dual-class</span><span style="font-weight:700;color:#ea580c">${dual2Yes} / ${dual2.length}</span>
+        </div>
+        <div style="background:#fed7aa;border-radius:99px;height:7px;overflow:hidden">
+          <div style="width:${Math.min((dual2Yes/Math.max(dual2.length,1))*100,100)}%;height:100%;border-radius:99px;background:linear-gradient(90deg,#ea580c,#f97316)"></div>
+        </div>
+      </div>
+      <div class="kpi-sub" style="margin-top:5px">${dual2Yes} approved · can host 2 classes</div>
+    </div>
   </div>`;
 
   // ── District summary ─────────────────────────────────────────────────
@@ -1009,15 +1079,32 @@ function renderOverview(){
     const y=vs.filter(v=>overallRank(v)==='YES').length;
     const m=vs.filter(v=>overallRank(v)==='MAYBE').length;
     const n=vs.filter(v=>overallRank(v)==='NO').length;
-    return`<div class="dist-row">
-      <div style="width:110px;font-weight:700;font-size:13px;color:#0f172a;text-transform:capitalize;flex-shrink:0">${dist}</div>
-      <div style="flex:1">${miniBar(aS,85,'#6366f1',10)}</div>
-      <div style="width:38px;text-align:right;font-weight:800;font-size:13px;color:#6366f1;flex-shrink:0">${Math.round(aS/85*100)}%</div>
-      <div style="display:flex;gap:4px;margin-left:12px;flex-shrink:0">
-        <span style="background:#dcfce7;color:#16a34a;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:700">${y}</span>
-        <span style="background:#fef3c7;color:#d97706;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:700">${m}</span>
-        <span style="background:#fee2e2;color:#dc2626;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:700">${n}</span>
+    const d2=vs.filter(v=>isDual(v)).length;
+    const d2pct=Math.round(d2/(vs.length||1)*100);
+    const tgt=DIST_TARGETS[dist.toLowerCase()]||null;
+    const tgtPct=tgt?Math.min(Math.round((y/tgt)*100),100):null;
+    const tgtCol=tgtPct===null?'#6366f1':tgtPct>=100?'#16a34a':tgtPct>=70?'#d97706':'#6366f1';
+    return`<div class="dist-row" style="flex-direction:column;align-items:stretch;gap:6px;padding:12px 0">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:90px;font-weight:800;font-size:13px;color:#0f172a;text-transform:capitalize;flex-shrink:0">${dist}</div>
+        <div style="flex:1">${miniBar(aS,85,'#6366f1',8)}</div>
+        <div style="font-weight:800;font-size:12px;color:#6366f1;flex-shrink:0;width:32px;text-align:right">${Math.round(aS/85*100)}%</div>
+        <div style="display:flex;gap:3px;margin-left:8px;flex-shrink:0">
+          <span style="background:#dcfce7;color:#16a34a;border-radius:5px;padding:1px 6px;font-size:11px;font-weight:700">${y}✓</span>
+          <span style="background:#fef3c7;color:#d97706;border-radius:5px;padding:1px 6px;font-size:11px;font-weight:700">${m}~</span>
+          <span style="background:#fee2e2;color:#dc2626;border-radius:5px;padding:1px 6px;font-size:11px;font-weight:700">${n}✗</span>
+          <span style="background:#fff7ed;color:#ea580c;border:1px solid #fed7aa;border-radius:5px;padding:1px 6px;font-size:11px;font-weight:700">🏫${d2pct}%</span>
+        </div>
       </div>
+      ${tgt!==null?`<div style="padding-left:0">
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;margin-bottom:3px">
+          <span style="color:#94a3b8;font-weight:600">Target progress</span>
+          <span style="font-weight:800;color:${tgtCol}">${y} approved of ${tgt} target &nbsp;·&nbsp; ${tgtPct}%</span>
+        </div>
+        <div style="background:#e2e8f0;border-radius:99px;height:6px;overflow:hidden">
+          <div style="width:${tgtPct}%;height:100%;border-radius:99px;background:${tgtCol};transition:width .5s"></div>
+        </div>
+      </div>`:''}
     </div>`;
   }).join('');
 
@@ -1068,6 +1155,8 @@ function renderOverview(){
         <div style="font-weight:800;font-size:13px;color:#1e1b4b;text-transform:capitalize">${dist}</div>
         <span style="background:#e0e7ff;color:#4338ca;border-radius:99px;padding:2px 8px;font-size:11px;font-weight:700">${distVs.length} venues</span>
         <span style="background:#f0fdf4;color:#15803d;border-radius:99px;padding:2px 8px;font-size:11px;font-weight:700">${nsP}% non-school</span>
+        <span style="background:#fff7ed;color:#ea580c;border:1px solid #fed7aa;border-radius:99px;padding:2px 8px;font-size:11px;font-weight:700">🏫 ${Math.round(distVs.filter(v=>isDual(v)).length/(distVs.length||1)*100)}% dual-class</span>
+        ${DIST_TARGETS[dist.toLowerCase()]?`<span style="background:#f0f9ff;color:#0369a1;border:1px solid #bae6fd;border-radius:99px;padding:2px 8px;font-size:11px;font-weight:700">🎯 ${distVs.filter(v=>overallRank(v)==='YES').length}/${DIST_TARGETS[dist.toLowerCase()]} target</span>`:''}
         <span style="font-size:11px;color:#94a3b8">${Object.keys(distParishes).length} parishes</span>
       </div>
       ${Object.entries(distParishes).sort((a,b)=>b[1].length-a[1].length).map(([par,pvs])=>{
@@ -1075,14 +1164,26 @@ function renderOverview(){
         const m=pvs.filter(v=>overallRank(v)==='MAYBE').length;
         const n=pvs.filter(v=>overallRank(v)==='NO').length;
         const aS=pvs.reduce((s,v)=>s+v.overall_score,0)/pvs.length;
-        return`<div style="display:flex;align-items:center;gap:10px;padding:6px 0 6px 14px;border-bottom:1px solid #f8fafc">
-          <div style="width:130px;font-size:12px;color:#334155;font-weight:600;text-transform:capitalize;flex-shrink:0">${par}</div>
-          <div style="flex:1">${miniBar(aS,85,'#06b6d4',7)}</div>
-          <div style="width:32px;text-align:right;font-size:11px;font-weight:700;color:#06b6d4;flex-shrink:0">${pvs.length}</div>
-          <div style="display:flex;gap:3px;margin-left:8px;flex-shrink:0">
-            <span style="background:#dcfce7;color:#16a34a;border-radius:5px;padding:1px 6px;font-size:10px;font-weight:700">${y}</span>
-            <span style="background:#fef3c7;color:#d97706;border-radius:5px;padding:1px 6px;font-size:10px;font-weight:700">${m}</span>
-            <span style="background:#fee2e2;color:#dc2626;border-radius:5px;padding:1px 6px;font-size:10px;font-weight:700">${n}</span>
+        const pTgt=parishTarget(par, dist);
+        const pTgtPct=pTgt?Math.min(Math.round((y/pTgt)*100),100):null;
+        const pTgtCol=pTgtPct===null?'#06b6d4':pTgtPct>=100?'#16a34a':pTgtPct>=70?'#d97706':'#6366f1';
+        return`<div style="padding:7px 0 7px 14px;border-bottom:1px solid #f1f5f9">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:130px;font-size:12px;color:#334155;font-weight:600;text-transform:capitalize;flex-shrink:0">${par}</div>
+            <div style="flex:1">${miniBar(aS,85,'#06b6d4',6)}</div>
+            <div style="width:26px;text-align:right;font-size:11px;font-weight:700;color:#06b6d4;flex-shrink:0">${pvs.length}</div>
+            <div style="display:flex;gap:3px;margin-left:6px;flex-shrink:0">
+              <span style="background:#dcfce7;color:#16a34a;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700">${y}</span>
+              <span style="background:#fef3c7;color:#d97706;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700">${m}</span>
+              <span style="background:#fee2e2;color:#dc2626;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700">${n}</span>
+              ${pvs.filter(v=>isDual(v)).length>0?`<span style="background:#fff7ed;color:#ea580c;border:1px solid #fed7aa;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700">🏫${pvs.filter(v=>isDual(v)).length}</span>`:''}
+            </div>
+            ${pTgt!==null?`<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:4px">
+              <div style="width:48px;background:#e2e8f0;border-radius:99px;height:5px;overflow:hidden">
+                <div style="width:${pTgtPct}%;height:100%;border-radius:99px;background:${pTgtCol}"></div>
+              </div>
+              <span style="font-size:10px;font-weight:800;color:${pTgtCol};width:28px">${y}/${pTgt}</span>
+            </div>`:''}
           </div>
         </div>`;
       }).join('')}
@@ -1126,7 +1227,7 @@ function renderOverview(){
   ${kpis}
   <div class="overview-2col">
     <div class="section-card">
-      <div class="section-title">📍 District Summary <span class="section-sub">YES · MAYBE · NO</span></div>
+      <div class="section-title">📍 District Summary <span class="section-sub">YES · MAYBE · NO · Target</span></div>
       ${distRows}
     </div>
     <div class="section-card">
@@ -1167,6 +1268,7 @@ function renderVenues(){
       <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px">
         <span style="background:${col}18;color:${col};font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px">${fmt(v.venue_category)}</span>
         ${isSchool(v)?`<span style="background:#ede9fe;color:#7c3aed;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px">🏫 School</span>`:''}
+        ${isDual(v)?`<span style="background:#fff7ed;color:#ea580c;border:1px solid #fed7aa;font-size:11px;font-weight:800;padding:2px 8px;border-radius:99px">🏫 2 classes</span>`:''}
       </div>
       ${[['Loc',v.location_total,10,'#6366f1'],['Fac',v.facility_total,25,'#0ea5e9'],['Safe',v.safety_total,20,'#10b981'],['Conv',v.convenience_total,30,'#f59e0b']].map(([l,val,mx,c])=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:10px;color:#94a3b8;width:30px">${l}</span>${miniBar(val,mx,c)}<span style="font-size:10px;font-weight:700;color:${c};width:26px;text-align:right">${val}/${mx}</span></div>`).join('')}
       <div style="margin-top:8px;font-size:11px;color:#94a3b8;text-align:right">Click for AI analysis →</div>
@@ -1206,8 +1308,44 @@ function renderQualitative(){
 // ══ ANALYSIS ═════════════════════════════════════════════════════════════════
 function renderAnalysis(){
   const sorted=gfSort(gfApplyFilter(appData));
-  const rows=sorted.map((v,i)=>{const rank=overallRank(v);const p=pct(v.overall_score,85);return`<tr onclick="openModal('${v.venue_name.replace(/'/g,"\\'")}')"><td style="font-weight:700;color:#6366f1">#${i+1}</td><td style="font-weight:700">${v.venue_name}</td><td style="text-transform:capitalize">${v.district}</td><td style="text-transform:capitalize">${v.subcounty||'—'}</td><td style="color:#14b8a6;font-weight:600">${v.contractor||'—'}</td><td><div style="display:flex;align-items:center;gap:4px"><span style="font-weight:700;color:#6366f1">${v.location_total}</span>${badge(v.location_rank)}</div></td><td><div style="display:flex;align-items:center;gap:4px"><span style="font-weight:700;color:#0ea5e9">${v.facility_total}</span>${badge(v.facility_rank)}</div></td><td><div style="display:flex;align-items:center;gap:4px"><span style="font-weight:700;color:#10b981">${v.safety_total}</span>${badge(v.safety_rank)}</div></td><td><div style="display:flex;align-items:center;gap:4px"><span style="font-weight:700;color:#f59e0b">${v.convenience_total}</span>${badge(v.convenience_rank)}</div></td><td><b>${v.overall_score}</b></td><td><span style="font-weight:900;color:${scoreColor(p)}">${p}%</span></td><td>${badge(rank)}</td></tr>`;}).join('');
-  return`<div class="section-card" style="overflow-x:auto"><div class="section-title">Full Scorecard Comparison <span class="section-sub">${sorted.length} venue${sorted.length!==1?'s':''}</span></div><table><thead><tr><th>#</th><th>Venue</th><th>District</th><th>Subcounty</th><th>Contractor</th><th>Loc /10</th><th>Fac /25</th><th>Safe /20</th><th>Conv /30</th><th>Total</th><th>%</th><th>Result</th></tr></thead><tbody>${rows||'<tr><td colspan="12" style="text-align:center;padding:30px;color:#94a3b8">No venues match your filters</td></tr>'}</tbody></table></div>`;
+  const rows=sorted.map((v,i)=>{
+    const rank=overallRank(v);
+    const p=pct(v.overall_score,85);
+    const nc=ncVal(v);
+    const ncLabel=nc===null?'<span style="color:#cbd5e1">—</span>'
+      :isDual(v)?`<span style="background:#fff7ed;color:#ea580c;border:1px solid #fed7aa;border-radius:6px;padding:2px 8px;font-weight:800;font-size:11px">🏫 Two</span>`
+      :`<span style="background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;border-radius:6px;padding:2px 8px;font-weight:600;font-size:11px">One</span>`;
+    return`<tr onclick="openModal('${v.venue_name.replace(/'/g,"\\'")}')">
+      <td style="font-weight:700;color:#6366f1">#${i+1}</td>
+      <td style="font-weight:700">${v.venue_name}</td>
+      <td style="text-transform:capitalize">${v.district}</td>
+      <td style="text-transform:capitalize">${v.subcounty||'—'}</td>
+      <td style="color:#14b8a6;font-weight:600">${v.contractor||'—'}</td>
+      <td><div style="display:flex;align-items:center;gap:4px"><span style="font-weight:700;color:#6366f1">${v.location_total}</span>${badge(v.location_rank)}</div></td>
+      <td><div style="display:flex;align-items:center;gap:4px"><span style="font-weight:700;color:#0ea5e9">${v.facility_total}</span>${badge(v.facility_rank)}</div></td>
+      <td><div style="display:flex;align-items:center;gap:4px"><span style="font-weight:700;color:#10b981">${v.safety_total}</span>${badge(v.safety_rank)}</div></td>
+      <td><div style="display:flex;align-items:center;gap:4px"><span style="font-weight:700;color:#f59e0b">${v.convenience_total}</span>${badge(v.convenience_rank)}</div></td>
+      <td><b>${v.overall_score}</b></td>
+      <td><span style="font-weight:900;color:${scoreColor(p)}">${p}%</span></td>
+      <td>${ncLabel}</td>
+      <td>${badge(rank)}</td>
+    </tr>`;
+  }).join('');
+  return`<div class="section-card" style="overflow-x:auto">
+    <div class="section-title">Full Scorecard Comparison <span class="section-sub">${sorted.length} venue${sorted.length!==1?'s':''}</span>
+      <span style="margin-left:12px;background:#fff7ed;color:#ea580c;border:1px solid #fed7aa;border-radius:8px;padding:3px 10px;font-size:11px;font-weight:700">
+        🏫 ${sorted.filter(v=>isDual(v)).length} dual-class venues
+      </span>
+    </div>
+    <table><thead><tr>
+      <th>#</th><th>Venue</th><th>District</th><th>Subcounty</th><th>Contractor</th>
+      <th>Loc /10</th><th>Fac /25</th><th>Safe /20</th><th>Conv /30</th><th>Total</th><th>%</th>
+      <th style="background:#7c2d12;white-space:nowrap">🏫 Classes</th>
+      <th>Result</th>
+    </tr></thead>
+    <tbody>${rows||'<tr><td colspan="13" style="text-align:center;padding:30px;color:#94a3b8">No venues match your filters</td></tr>'}</tbody>
+    </table>
+  </div>`;
 }
 
 // ══ CONTACTS ══════════════════════════════════════════════════════════════════
@@ -1246,7 +1384,7 @@ function renderModal(v){
     body=`<div style="margin-bottom:12px">${schoolTag}</div>
     <div class="contact-grid">
       <div class="contact-block"><div class="contact-label">Contact Person</div><div style="font-weight:800;color:#0f172a;font-size:15px;margin-bottom:4px">${v.contact_name||'—'}</div><a href="tel:${v.contact_phone1}" style="display:block;font-weight:700;font-size:13px;color:#6366f1;margin-bottom:2px">📞 ${v.contact_phone1||'—'}</a>${v.contact_phone2?`<a href="tel:${v.contact_phone2}" style="display:block;font-size:13px;color:#94a3b8">📞 ${v.contact_phone2}</a>`:''}${v.contact_email?`<a href="mailto:${v.contact_email}" style="display:block;font-size:13px;color:#0ea5e9;margin-top:4px">✉️ ${v.contact_email}</a>`:''}</div>
-      <div class="contact-block"><div class="contact-label">Venue Details</div><div style="font-size:13px;color:#334155;line-height:2"><div><b>District:</b> ${fmt(v.district)}</div><div><b>Subcounty:</b> ${fmt(v.subcounty)}</div><div><b>Parish:</b> ${fmt(v.parish)}</div><div><b>Contractor:</b> <span style="color:#14b8a6;font-weight:700">${v.contractor||'—'}</span></div>${v._venue_gps_latitude?`<div><b>GPS:</b> ${Number(v._venue_gps_latitude).toFixed(5)}, ${Number(v._venue_gps_longitude).toFixed(5)}</div>`:''}</div></div>
+      <div class="contact-block"><div class="contact-label">Venue Details</div><div style="font-size:13px;color:#334155;line-height:2"><div><b>District:</b> ${fmt(v.district)}</div><div><b>Subcounty:</b> ${fmt(v.subcounty)}</div><div><b>Parish:</b> ${fmt(v.parish)}</div><div><b>Contractor:</b> <span style="color:#14b8a6;font-weight:700">${v.contractor||'—'}</span></div>${ncVal(v)!=null?`<div><b>Classes capacity:</b> <span style="background:${isDual(v)?'#fff7ed':'#f8fafc'};color:${isDual(v)?'#ea580c':'#64748b'};font-weight:800;border-radius:5px;padding:1px 7px">${isDual(v)?'Two 🏫 Dual-class':'One'}</span></div>`:''} ${v._venue_gps_latitude?`<div><b>GPS:</b> ${Number(v._venue_gps_latitude).toFixed(5)}, ${Number(v._venue_gps_longitude).toFixed(5)}</div>`:''}</div></div>
     </div>
     ${v.photo_url?`<div class="contact-block" style="margin-top:12px"><div class="contact-label">Venue Photo</div>
       <div style="margin-bottom:8px"><img src="${v.photo_url}" alt="Venue photo" style="width:100%;max-height:260px;object-fit:cover;border-radius:12px;border:1px solid #e2e8f0;display:block" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"/><div style="display:none;color:#94a3b8;font-size:12px;margin-top:4px">⚠️ Photo could not be loaded.</div></div>
@@ -1277,6 +1415,7 @@ function renderModal(v){
       <div class="modal-rank-bar">
         <span>🏆 Ranked <b style="color:#fcd34d">#${pos}</b> of ${appData.length}</span>
         <span>🌍 Overall avg: <b style="color:#86efac">${Math.round(avgAll/85*100)}%</b></span>
+        ${ncVal(v)!=null?`<span style="background:rgba(249,115,22,.2);border-radius:6px;padding:2px 8px;color:#fed7aa;font-weight:800">🏫 ${isDual(v)?'Two classes · Dual-class ✓':'One class'}</span>`:''}
       </div>
     </div>
     <div style="display:flex;gap:3px;padding:10px 16px 0;border-bottom:1px solid #f1f5f9;background:#fafafa">
