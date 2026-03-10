@@ -583,9 +583,9 @@ function toggleSidebar(){
 // ─── HELPERS ───────────────────────────────────────────────────────────────
 const fmt=s=>s?String(s).replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()):'';
 const pct=(v,max)=>Math.round((v/max)*100);
-// Normalise number_classes: "One"→1, "Two"→2, numeric strings, or null
+// Normalise number_classes_f: "One"→1, "Two"→2, numeric strings, or null
 function ncVal(v){
-  const raw=v.number_classes;
+  const raw=v.number_classes_f;
   if(raw==null||raw==='')return null;
   const s=String(raw).trim().toLowerCase();
   if(s==='one')return 1;
@@ -658,7 +658,7 @@ function bootApp(){
 // ─── CSV PARSER ────────────────────────────────────────────────────────────
 function parseCSVLine(line){const r=[];let cur='',inQ=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else inQ=!inQ;}else if(ch===','&&!inQ){r.push(cur.trim());cur='';}else cur+=ch;}r.push(cur.trim());return r;}
 function normH(h){return h.replace(/^\uFEFF/,'').replace(/"/g,'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');}
-const ALIASES={venue_name:['venue_name','venuename','name','venue'],district:['district'],subcounty:['subcounty','sub_county'],parish:['parish'],village:['village'],venue_category:['venue_category','category'],venue_type:['venue_type','type'],contractor:['contractor','assessor','mobiliser','mobilizer'],contact_name:['contact_name','contact'],contact_phone1:['contact_phone1','phone1','phone'],contact_phone2:['contact_phone2','phone2'],contact_email:['contact_email','email'],invoice_pdf_URL:['invoice_pdf_url','invoice_url'],photo_url:['photo_url','photo','venue_photo','image_url','image','venue_image','photo_link'],transport_accessibility:['transport_accessibility','transport'],proximity_to_social_amenities:['proximity_to_social_amenities','proximity'],location_total:['location_total'],location_rank:['location_rank'],training_room_size:['training_room_size','room_size'],washrooms:['washrooms'],seating_chairs:['seating_chairs','seating','chairs'],tables:['tables'],storage_room:['storage_room','storage'],facility_total:['facility_total'],facility_rank:['facility_rank'],building_compound_security:['building_compound_security'],lockable_training_rooms:['lockable_training_rooms','lockable'],handwashing_stations:['handwashing_stations','handwashing'],security_personnel:['security_personnel','personnel'],safety_total:['safety_total'],safety_rank:['safety_rank'],cleanliness_flow_quality:['cleanliness_flow_quality','cleanliness'],washroom_cleanliness:['washroom_cleanliness'],ventilation:['ventilation'],lighting:['lighting'],roof_condition:['roof_condition','roof'],outdoor_space:['outdoor_space','outdoor'],convenience_total:['convenience_total'],convenience_rank:['convenience_rank'],assessor_notes:['assessor_notes','notes','comments'],grand_rank:['grand_rank','grandrank','grand rank','total_rank','totalrank'],number_classes:['number_classes','num_classes','classes','no_classes','number_of_classes','no_of_classes'],_venue_gps_latitude:['_venue_gps_latitude','latitude','lat'],_venue_gps_longitude:['_venue_gps_longitude','longitude','lng','lon']};
+const ALIASES={venue_name:['venue_name','venuename','name','venue'],district:['district'],subcounty:['subcounty','sub_county'],parish:['parish'],village:['village'],venue_category:['venue_category','category'],venue_type:['venue_type','type'],contractor:['contractor','assessor','mobiliser','mobilizer'],contact_name:['contact_name','contact'],contact_phone1:['contact_phone1','phone1','phone'],contact_phone2:['contact_phone2','phone2'],contact_email:['contact_email','email'],invoice_pdf_URL:['invoice_pdf_url','invoice_url'],photo_url:['photo_url','photo','venue_photo','image_url','image','venue_image','photo_link'],transport_accessibility:['transport_accessibility','transport'],proximity_to_social_amenities:['proximity_to_social_amenities','proximity'],location_total:['location_total'],location_rank:['location_rank'],training_room_size:['training_room_size','room_size'],washrooms:['washrooms'],seating_chairs:['seating_chairs','seating','chairs'],tables:['tables'],storage_room:['storage_room','storage'],facility_total:['facility_total'],facility_rank:['facility_rank'],building_compound_security:['building_compound_security'],lockable_training_rooms:['lockable_training_rooms','lockable'],handwashing_stations:['handwashing_stations','handwashing'],security_personnel:['security_personnel','personnel'],safety_total:['safety_total'],safety_rank:['safety_rank'],cleanliness_flow_quality:['cleanliness_flow_quality','cleanliness'],washroom_cleanliness:['washroom_cleanliness'],ventilation:['ventilation'],lighting:['lighting'],roof_condition:['roof_condition','roof'],outdoor_space:['outdoor_space','outdoor'],convenience_total:['convenience_total'],convenience_rank:['convenience_rank'],assessor_notes:['assessor_notes','notes','comments'],grand_rank:['grand_rank','grandrank','grand rank','total_rank','totalrank'],number_classes_f:['number_classes_f','num_classes','classes','no_classes','number_of_classes','no_of_classes'],_venue_gps_latitude:['_venue_gps_latitude','latitude','lat'],_venue_gps_longitude:['_venue_gps_longitude','longitude','lng','lon']};
 const HMAP={};Object.entries(ALIASES).forEach(([c,as])=>as.forEach(a=>{HMAP[normH(a)]=c;}));
 function parseCSV(text){
   const clean=text.replace(/^\uFEFF/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
@@ -692,10 +692,21 @@ async function fetchSheet(silent=false){
       if(!json.ok)throw new Error(json.error||'Apps Script error.');
       if(!json.venues||!json.venues.length)throw new Error('0 venue rows returned.');
       parsed=json.venues;
-      parsed.forEach(v=>{
+      // Normalise every field using the same ALIASES/HMAP used by the CSV parser,
+      // so camelCase / spaced / variant key names from Apps Script are all resolved.
+      parsed=parsed.map(raw=>{
+        const v={};
+        // First pass: map every raw key through HMAP to its canonical name
+        Object.entries(raw).forEach(([k,val])=>{
+          const canon=HMAP[normH(k)]||k;
+          if(v[canon]==null) v[canon]=val; // first match wins
+        });
+        // Fallbacks for grand_rank variants not covered by normH
+        if(v.grand_rank==null&&raw.grandRank!=null)v.grand_rank=raw.grandRank;
+        if(v.grand_rank==null&&raw['grand rank']!=null)v.grand_rank=raw['grand rank'];
+        // Compute overall_score if missing
         if(!v.overall_score)v.overall_score=(v.location_total||0)+(v.facility_total||0)+(v.safety_total||0)+(v.convenience_total||0);
-        if(v.grand_rank==null&&v.grandRank!=null)v.grand_rank=v.grandRank;
-        if(v.grand_rank==null&&v['grand rank']!=null)v.grand_rank=v['grand rank'];
+        return v;
       });
     }else{
       const res=await fetch(url);if(!res.ok)throw new Error(`HTTP ${res.status}`);
@@ -1025,9 +1036,11 @@ function renderOverview(){
   const schoolMaybe=schools.filter(v=>overallRank(v)==='MAYBE').length;
   const schoolNo=schools.filter(v=>overallRank(v)==='NO').length;
 
-  // Venues that can host 2 simultaneous classes (number_classes = "Two" or ≥2)
+  // Venues that can host 2 simultaneous classes (number_classes_f = "Two" or ≥2)
   const dual2=data.filter(v=>isDual(v));
   const dual2Yes=dual2.filter(v=>overallRank(v)==='YES').length;
+  const dual2Schools=dual2.filter(v=>isSchool(v)).length;
+  const dual2SchoolPct=Math.round(dual2Schools/(dual2.length||1)*100);
 
   const kpis=`<div class="kpis">
     <div class="kpi" style="border-left:4px solid #6366f1"><div class="kpi-label">Total Venues</div><div class="kpi-val">${data.length}</div><div class="kpi-sub">${data.length<appData.length?`Filtered from ${appData.length}`:'Assessed so far'}</div></div>
@@ -1070,6 +1083,7 @@ function renderOverview(){
         </div>
       </div>
       <div class="kpi-sub" style="margin-top:5px">${dual2Yes} approved · can host 2 classes</div>
+      <div style="margin-top:6px;padding-top:6px;border-top:1px solid #fed7aa;font-size:10px;color:#92400e;font-weight:600">🏫 <b style="color:#ea580c">${dual2SchoolPct}%</b> of dual-class are schools <span style="color:#94a3b8;font-weight:400">(${dual2Schools} of ${dual2.length})</span></div>
     </div>
   </div>`;
 
