@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rentable Houses · Field Survey</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+#topbar{
+  background:linear-gradient(135deg,#1e1b4b 0%,#3730a3 60%,#4f46e5 100%);
+  display:flex;align-items:center;gap:12px;padding:0 16px;height:44px;flex-shrink:0;
+  box-shadow:0 2px 8px rgba(0,0,0,.3)
+}
+#back-btn{
+  display:flex;align-items:center;gap:6px;
+  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);
+  color:#fff;border-radius:7px;padding:5px 12px;font-size:12px;font-weight:600;
+  cursor:pointer;text-decoration:none;transition:background .15s;white-space:nowrap;font-family:inherit
+}
+#back-btn:hover{background:rgba(255,255,255,.22)}
+#back-btn svg{width:14px;height:14px;flex-shrink:0}
+.divider{width:1px;height:20px;background:rgba(255,255,255,.2)}
+#page-title{color:rgba(255,255,255,.9);font-size:13px;font-weight:600}
+#page-sub{color:rgba(255,255,255,.45);font-size:11px;margin-left:auto;white-space:nowrap}
+#survey-frame{flex:1;width:100%;border:none;display:block}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <button id="back-btn" onclick="goBack()">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10 12L6 8l4-4"/>
+    </svg>
+    Back to Dashboard
+  </button>
+  <div class="divider"></div>
+  <div id="page-title">🏠 Rentable Houses Analysis</div>
+  <div id="page-sub">Bugiri &amp; Bugweri Districts</div>
+</div>
+
+<iframe
+  id="survey-frame"
+  src="https://joshkakaire.github.io/Rentable-Houses-survey/"
+  title="Rentable Houses Survey"
+  allow="geolocation"
+></iframe>
+
+<script>
+function goBack(){
+  // If opened by window.open from dashboard, focus back to it
+  if(window.opener && !window.opener.closed){
+    window.opener.focus();
+    window.close();
+  } else {
+    // Fallback: go back in history or close
+    if(history.length > 1) history.back();
+    else window.close();
+  }
+}
+
+// Keyboard shortcut: Escape to go back
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Escape') goBack();
+});
+</script>
+</body>
+</html>
