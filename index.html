@@ -323,6 +323,7 @@ tbody td{padding:10px 12px;color:#334155}
       <button class="tab" onclick="switchTab('analysis')">📈 Analysis</button>
       <button class="tab" onclick="switchTab('contacts')">📞 Contacts</button>
       <button class="tab" onclick="switchTab('map')">🗺 Map</button>
+      <button class="tab" onclick="window.open('rentable-houses.html','rentable_houses','noopener')" style="display:flex;align-items:center;gap:5px">🏠 Rentable Houses <span style="font-size:9px;opacity:.6">↗</span></button>
     </div>
   </div>
 </div>
@@ -755,6 +756,7 @@ function switchTab(t){
   renderContent();
 }
 function renderContent(){
+
   if(!appData.length){document.getElementById('content').innerHTML=renderOfflineBanner();return;}
   gfInit();
   const el=document.getElementById('content');
